@@ -1,0 +1,4005 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="wxwSeQX5IJDWRKC1B7eoCn">
+<head data-page-node-id="sxE4w5v9BxJfenLFkBuSEi">
+<meta charset="UTF-8" data-page-node-id="ELah3QkUpagaNbBn94XffE">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" data-page-node-id="lhqMFrHdt0kvGDgTxoxZUe">
+<title>合成大西瓜</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  background: radial-gradient(ellipse at top, #1f2942 0%, #0f1424 60%, #060912 100%);
+  color: #e8e8e8;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#app {
+  width: 100%;
+  max-width: 1180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* 游戏画布区域：手机上触摸时不触发页面滚动/缩放，避免"上下乱跑" */
+#gameCanvas, .game-area { touch-action: none; -webkit-touch-callout: none; }
+
+/* ===== 顶部 Header ===== */
+header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 0 6px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+header h1 {
+  font-size: 22px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #ffd166 0%, #ef476f 50%, #06d6a0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: 1px;
+}
+
+.stats {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.stat {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: #aab;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.stat-value {
+  color: #ffd166;
+  font-weight: 700;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  min-width: 32px;
+  text-align: right;
+}
+
+.stat.high .stat-value { color: #06d6a0; }
+
+/* ===== 按钮 ===== */
+button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 9px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  font-family: inherit;
+}
+
+button:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(102, 126, 234, 0.35); }
+button:active { transform: translateY(0); filter: brightness(0.95); }
+button.secondary { background: rgba(255, 255, 255, 0.08); }
+button.secondary:hover { background: rgba(255, 255, 255, 0.14); box-shadow: none; }
+
+/* ===== Main 布局 ===== */
+main {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.game-area {
+  position: relative;
+  flex-shrink: 0;
+}
+
+#gameCanvas {
+  background: #1a2533;
+  border-radius: 14px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+  cursor: none;
+  touch-action: none;
+  display: block;
+  width: 420px;
+  max-width: 100%;
+  height: auto;
+}
+
+#gameOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(8, 12, 22, 0.85);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border-radius: 14px;
+  gap: 16px;
+  z-index: 10;
+}
+
+#gameOverlay.hidden { display: none; }
+
+/* ===== 合成成功弹层（Lv10→Lv11 时弹出） ===== */
+.success-modal {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 99999;
+  animation: successFadeIn 0.3s ease-out;
+  pointer-events: auto;
+}
+.success-card {
+  background: linear-gradient(135deg, #ffd86b 0%, #ff8a4c 50%, #ff5e8a 100%);
+  border-radius: 18px;
+  padding: 32px 48px 28px;
+  box-shadow: 0 20px 60px rgba(255, 90, 120, 0.45), inset 0 0 30px rgba(255, 255, 255, 0.18);
+  text-align: center;
+  color: #fff;
+  font-weight: 800;
+  position: relative;
+  overflow: hidden;
+  animation: successPop 0.55s cubic-bezier(0.34, 1.56, 0.64, 1);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  min-width: 260px;
+}
+.success-card::after {
+  content: '';
+  position: absolute; inset: -40%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.4) 0%, transparent 60%);
+  animation: successShine 2s ease-in-out infinite;
+  pointer-events: none;
+}
+.success-card .emoji {
+  font-size: 54px; display: block; margin-bottom: 6px;
+  animation: successBounce 1.4s ease-in-out infinite;
+  position: relative; z-index: 1;
+}
+.success-card .title {
+  font-size: 22px; letter-spacing: 2px; opacity: 0.95;
+  position: relative; z-index: 1;
+}
+.success-card .name {
+  font-size: 40px; margin: 8px 0 4px; font-weight: 900;
+  display: inline-block; padding: 0 8px;
+  background: linear-gradient(transparent 55%, rgba(255, 255, 255, 0.45) 55%);
+  position: relative; z-index: 1;
+  word-break: break-all;
+  max-width: 80vw;
+}
+.success-card .succeed {
+  font-size: 20px; letter-spacing: 4px; margin-top: 2px;
+  position: relative; z-index: 1;
+}
+.success-card .hint {
+  font-size: 12px; opacity: 0.85; margin-top: 14px; font-weight: 500;
+  position: relative; z-index: 1;
+}
+@keyframes successFadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes successPop {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes successBounce {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  50% { transform: translateY(-6px) rotate(12deg); }
+}
+@keyframes successShine {
+  0%, 100% { transform: translate(-30%, -30%) rotate(0); opacity: 0.4; }
+  50% { transform: translate(30%, 30%) rotate(45deg); opacity: 0.7; }
+}
+.success-modal.fading { opacity: 0; transition: opacity 0.5s; }
+
+.game-over-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ef476f;
+  text-shadow: 0 0 18px rgba(239, 71, 111, 0.5);
+}
+
+.game-over-score {
+  color: #ffd166;
+  font-size: 16px;
+}
+
+.game-over-score b { font-size: 24px; }
+
+#overlayRestart { padding: 10px 24px; font-size: 14px; }
+
+/* ===== 配置面板 ===== */
+.config-panel {
+  width: 320px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  padding: 14px;
+  flex-shrink: 0;
+}
+
+.config-panel h2 {
+  font-size: 14px;
+  color: #aab;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.config-list {
+  max-height: 540px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.config-list::-webkit-scrollbar { width: 6px; }
+.config-list::-webkit-scrollbar-track { background: transparent; }
+.config-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+.config-list::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+.config-item {
+  background: rgba(255, 255, 255, 0.04);
+  padding: 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  transition: border-color 0.2s;
+}
+
+.config-item:hover { border-color: rgba(102, 126, 234, 0.4); }
+
+.config-item-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.config-preview {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2c3e50, #1a252f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.08);
+  font-size: 11px;
+  color: #fff;
+  font-weight: 700;
+}
+
+.config-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.config-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: #fff;
+  flex: 1;
+}
+.name-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid transparent;
+  color: #fff;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  outline: none;
+  font-family: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.name-input:hover { background: rgba(0, 0, 0, 0.4); }
+.name-input:focus { border-color: #667eea; background: rgba(0, 0, 0, 0.4); }
+
+.config-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  color: #aab;
+}
+
+.crop-btn { font-size: 11px; padding: 5px 10px; }
+.crop-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ===== 图片「调整画面」裁剪弹窗 ===== */
+.crop-modal { position: fixed; inset: 0; z-index: 100000; display: flex; align-items: center; justify-content: center; }
+.crop-modal.hidden { display: none; }
+.crop-modal-backdrop { position: absolute; inset: 0; background: rgba(0, 0, 0, 0.72); backdrop-filter: blur(4px); }
+.crop-modal-box {
+  position: relative; width: 620px; max-width: 94vw; max-height: 92vh; overflow: auto;
+  background: linear-gradient(160deg, #1e2430, #141924); color: #e8e8e8;
+  border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+.crop-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.crop-modal-head h3 { margin: 0; font-size: 16px; font-weight: 600; }
+.crop-close { background: none; border: none; color: #aaa; font-size: 20px; cursor: pointer; line-height: 1; padding: 4px 6px; }
+.crop-close:hover { color: #fff; }
+
+.crop-levels { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.crop-level {
+  width: 44px; height: 44px; border-radius: 50%; overflow: hidden; position: relative;
+  border: 2px solid rgba(255, 255, 255, 0.12); background: #2c3e50; cursor: pointer; padding: 0;
+}
+.crop-level img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.crop-level .lv-tag {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  font-size: 12px; font-weight: 700; color: #fff; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7); pointer-events: none;
+}
+.crop-level.active { border-color: #667eea; box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.45); }
+
+.crop-stage-wrap { text-align: center; margin-bottom: 8px; }
+.crop-canvas { width: 300px; height: 300px; border-radius: 50%; cursor: grab; touch-action: none; background: #0e1117; box-shadow: 0 0 0 2px rgba(255,255,255,0.15); }
+.crop-canvas:active { cursor: grabbing; }
+.crop-hint { font-size: 11px; color: #889; margin-top: 6px; }
+
+.crop-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+.crop-controls label { font-size: 12px; color: #aab; white-space: nowrap; }
+.crop-controls input[type="range"] { flex: 1; accent-color: #667eea; }
+.crop-controls button { font-size: 11px; padding: 5px 10px; }
+
+.crop-info { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: #889; margin-bottom: 12px; }
+.crop-info .crop-level-name { font-weight: 600; color: #cfd6ff; }
+
+.crop-modal-foot { display: flex; justify-content: flex-end; gap: 10px; }
+.crop-modal-foot button { font-size: 13px; padding: 9px 16px; }
+
+.config-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #889;
+}
+
+.config-row label { flex-shrink: 0; width: 36px; }
+
+.config-row input[type="text"] {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eee;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  outline: none;
+  min-width: 0;
+  font-family: inherit;
+}
+
+.config-row input[type="text"]:focus { border-color: #667eea; }
+
+.file-btn {
+  font-size: 11px;
+  padding: 5px 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.file-btn input { display: none; }
+
+.config-row input[type="range"] {
+  flex: 1;
+  accent-color: #667eea;
+  height: 4px;
+}
+
+.config-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.config-actions button { flex: 1; font-size: 12px; padding: 8px; }
+
+/* ===== 命名配置管理 ===== */
+.config-manager {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+.config-manager-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.config-manager-row + .config-manager-row { margin-top: 8px; }
+.config-manager label {
+  color: #ddd;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.config-manager input[type="text"] {
+  flex: 1;
+  min-width: 100px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eee;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  outline: none;
+  font-family: inherit;
+}
+.config-manager input[type="text"]:focus { border-color: #667eea; }
+.config-manager select {
+  flex: 1;
+  min-width: 0;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eee;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+}
+.config-manager select:focus { border-color: #667eea; }
+.config-manager select option { background: #1f1f2e; color: #eee; }
+
+/* 难度选择器 */
+.difficulty-selector { display: flex; gap: 4px; flex: 1; min-width: 0; }
+.diff-btn {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ccc;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.1s;
+  font-family: inherit;
+  white-space: nowrap;
+  position: relative;
+  z-index: 50;   /* 抬高难度按钮层级，使其弹出的掉落说明浮在配置 chip(🔒) 之上，不受遮挡 */
+}
+.diff-btn:hover { background: rgba(255, 255, 255, 0.12); color: #fff; }
+.diff-btn:active { transform: scale(0.96); }
+.diff-btn.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: rgba(102, 126, 234, 0.5);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+/* 难度悬停说明：展示各级掉落概率 */
+.diff-tip {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  min-width: 120px;
+  width: max-content;
+  max-width: 230px;
+  background: rgba(18, 22, 38, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  white-space: normal;
+  text-align: left;
+  display: none;
+  pointer-events: none;
+}
+.diff-btn:hover .diff-tip { display: block; }
+.diff-tip .tip-title { font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 4px; letter-spacing: 0.2px; }
+.diff-tip .tip-size {
+  font-size: 10px;
+  color: #ffd89b;
+  background: rgba(255, 216, 155, 0.08);
+  border: 1px solid rgba(255, 216, 155, 0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-bottom: 6px;
+  display: inline-block;
+}
+.diff-tip .tip-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.diff-tip .tip-chip {
+  font-size: 10px;
+  line-height: 1.6;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #cfd4e6;
+  white-space: nowrap;
+}
+.config-manager button {
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+.btn-small { font-size: 10px; padding: 4px 8px; }
+.config-manager .current-name {
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.18), rgba(118, 75, 162, 0.18));
+  border: 1px solid rgba(102, 126, 234, 0.5);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-weight: bold;
+  color: #d4d8ff;
+  flex: 1;
+  text-align: center;
+  min-width: 100px;
+}
+.config-manager .badge-unsaved {
+  color: #ff8a65;
+  font-size: 10px;
+  margin-left: 4px;
+}
+#savedConfigsList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+.saved-config-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 4px 4px 4px 10px;
+  font-size: 11px;
+  color: #ccc;
+  cursor: pointer;
+  transition: all 0.15s;
+  max-width: 100%;
+}
+.saved-config-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.saved-config-chip.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+  cursor: default;
+}
+.saved-config-chip .chip-del {
+  border: none;
+  background: rgba(0,0,0,0.2);
+  color: inherit;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.saved-config-chip .chip-del:hover { background: rgba(255, 50, 50, 0.6); }
+
+/* 内置预设 chip：紫色渐变边框 + 锁图标 */
+.saved-config-chip.builtin {
+  background: rgba(102, 126, 234, 0.12);
+  border-color: rgba(102, 126, 234, 0.45);
+  color: #c8c4ff;
+}
+.saved-config-chip.builtin:hover {
+  background: rgba(102, 126, 234, 0.25);
+}
+.saved-config-chip.builtin.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.saved-config-chip .chip-lock {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.tip {
+  font-size: 11px;
+  color: #678;
+  margin-top: 8px;
+  line-height: 1.5;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 880px) {
+  main { flex-direction: column; align-items: center; }
+  .config-panel { width: 100%; max-width: 420px; }
+  .config-list { max-height: 320px; }
+}
+
+@media (max-width: 460px) {
+  body { padding: 8px; }
+  header h1 { font-size: 18px; }
+  .stat { padding: 6px 10px; font-size: 11px; }
+  .stat-value { font-size: 14px; }
+}
+
+/* ===== 头部按钮组（通用） ===== */
+.header-actions { display: flex; align-items: center; gap: 8px; }
+#settingsBtn { display: none; }   /* 配置面板常驻旁栏，桌面端不显示设置按钮 */
+
+/* ===== 手机端（≤560px）：一屏看到 标题+分数+游戏区；配置面板抽屉化 ===== */
+@media (max-width: 560px) {
+  body { padding: 6px; }
+  #app { max-width: 100%; }
+
+  /* 顶部紧凑 HUD：标题 + 分数 + 按钮 单行放下 */
+  header {
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 0 2px;
+  }
+  header h1 {
+    font-size: 15px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 0 0 auto;
+    max-width: 46%;
+  }
+  .stats { gap: 6px; margin-left: auto; }
+  .stat { padding: 4px 8px; font-size: 10px; border-radius: 8px; }
+  .stat-value { font-size: 13px; min-width: 22px; }
+
+  /* 设置 / 重启：紧凑小按钮 */
+  #settingsBtn { display: inline-flex; }
+  #restartBtn { padding: 6px 8px; font-size: 12px; }
+  .header-actions { gap: 6px; }
+
+  /* 游戏画布占满可用宽度，并按视口高度等比例缩放 → 一屏内尽量完整可见（420:720） */
+  #gameCanvas {
+    width: min(100%, calc((100vh - 92px) * 0.583333));
+    max-width: 420px;
+    border-radius: 10px;
+  }
+
+  /* 配置面板 → 底部抽屉（默认收起，点「⚙️设置」弹出） */
+  .config-panel {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 78vh;
+    padding: 12px;
+    border-radius: 16px 16px 0 0;
+    background: #12161f;
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 -12px 40px rgba(0,0,0,.55);
+    transform: translateY(110%);
+    transition: transform .28s ease;
+    overflow-y: auto;
+    z-index: 950;
+  }
+  body.cfg-open .config-panel { transform: translateY(0); }
+  body.cfg-open #cfgBackdrop { display: block !important; }
+  .config-list { max-height: 42vh; }
+  .config-panel h2 { text-align: center; }
+}
+</style>
+</head>
+<body data-page-node-id="xpC3X88SmA2paDRpt3K03A">
+<div id="app" data-page-node-id="7vwkvXskCpxcb4yJvhEbv6">
+
+  <header data-page-node-id="A4e1GIQ8ZLL58EzIfoRqY1">
+    <h1 data-page-node-id="kwFbqzQfCMVbV4TZWlnN9R">🍉 合成大西瓜</h1>
+    <div class="stats" data-page-node-id="SqNIT42cOUIwC2KFMB9BpY">
+      <div class="stat" data-page-node-id="qiwaR3wH10mvOZhyZdzVRP">分数 <span class="stat-value" id="scoreEl" data-page-node-id="ueO3NWhd3BqygUhKNEebA6">0</span></div>
+      <div class="stat high" data-page-node-id="4UzsInTIuo9SZt7tspwEAT">最高 <span class="stat-value" id="highScoreEl" data-page-node-id="eAzmaid2V1yTIKcWdoxdcg">0</span></div>
+    </div>
+    <div class="header-actions" data-page-node-id="HdrAct01">
+      <button id="settingsBtn" class="secondary cfg-toggle" title="水果配置">⚙️ 设置</button>
+      <button id="restartBtn" class="secondary" data-page-node-id="CP4cqsvjfbRHllg3cku4D6">重新开始</button>
+    </div>
+  </header>
+
+  <main data-page-node-id="mu3ScTgmXdnmzLlwDUtGYc">
+    <div class="game-area" data-page-node-id="OJhlsgTcvzKmXYycs4j9HW">
+      <canvas id="gameCanvas" width="420" height="720" data-page-node-id="1PrfBeUeJmvaUCDlMiNiEK"></canvas>
+      <div id="gameOverlay" class="hidden" data-page-node-id="LCxVo8A3QRz2VFKQOv1xLm">
+        <div class="game-over-title" data-page-node-id="AQrYG9NppftmBGJya454F0">游戏结束</div>
+        <div class="game-over-score" data-page-node-id="iccTaHv1FPUYQvdjpTDoRa">最终得分：<b id="finalScoreEl" data-page-node-id="FmheuFjZmZYKj90jPY2rDF">0</b></div>
+        <button id="overlayRestart" data-page-node-id="SrXmDbQtQM6LGz7HoIPi0F">再来一局</button>
+      </div>
+    </div>
+
+    <aside class="config-panel" data-page-node-id="QCWtT5Rz8pZXidUifqvnMB">
+      <h2 data-page-node-id="x52MRuQtYFhGU08WupJcSJ">⚙️ 水果配置</h2>
+      <div class="config-manager">
+        <div class="config-manager-row">
+          <label>当前配置</label>
+          <span class="current-name" id="currentConfigName">默认</span>
+          <span class="badge-unsaved" id="unsavedBadge" style="display:none">●未保存</span>
+        </div>
+        <div class="config-manager-row">
+          <label>名称</label>
+          <input type="text" id="configNameInput" placeholder="输入配置名（另存为新配置）" maxlength="24">
+        </div>
+        <div class="config-manager-row">
+          <label>游戏名</label>
+          <input type="text" id="titleInput" placeholder="游戏标题（随配置保存）" maxlength="16">
+        </div>
+        <div class="config-manager-row">
+          <label>难度</label>
+          <div class="difficulty-selector" id="difficultySelector">
+            <button class="diff-btn" data-difficulty="easy" title="掉 Lv1~6，可以更快推到 Lv11">简单</button>
+            <button class="diff-btn active" data-difficulty="normal" title="掉 Lv1~4 葡萄/樱桃/橘子/柠檬，原始规则">普通</button>
+            <button class="diff-btn" data-difficulty="hard" title="只掉 Lv1~2 葡萄/樱桃，需要大量合成才能到 Lv11">困难</button>
+          </div>
+        </div>
+        <div class="config-manager-row">
+          <button id="saveConfigBtn">💾 保存当前</button>
+          <button id="saveAsConfigBtn" class="secondary">📋 另存为</button>
+          <button id="deleteConfigBtn" class="secondary">🗑 删除</button>
+        </div>
+        <div class="config-manager-row">
+          <label>已保存</label>
+          <div id="savedConfigsList"></div>
+        </div>
+        <div class="config-manager-row">
+          <button id="bulkImportBtn" class="secondary">📂 从文件夹批量导入</button>
+          <input type="file" id="bulkImportInput" webkitdirectory multiple accept="image/*" style="display:none">
+        </div>
+        <div class="config-manager-row" style="flex-direction:column;align-items:stretch;gap:6px;">
+          <label>多设备同步 <span style="color:#889;font-weight:normal;">（含 11 张图，约 2-5MB）</span></label>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button id="copyConfigJsonBtn" class="secondary">📋 复制配置 JSON</button>
+            <button id="pasteConfigJsonBtn" class="secondary">📥 从剪贴板导入</button>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button id="exportConfigJsonBtn" class="secondary">💾 导出为文件</button>
+            <button id="importConfigJsonBtn" class="secondary">📂 从文件导入</button>
+            <input type="file" id="importConfigJsonInput" accept="application/json,.json" style="display:none">
+          </div>
+          <div style="font-size:11px;color:#889;line-height:1.55;margin-top:2px;">
+            💡 跨设备同步：在<b>设备 A</b> 点「💾 导出为文件」保存配置（含最高分）；
+            把文件传到<b>设备 B</b>，点「📂 从文件导入」选该文件即可。
+            也可「📋 复制配置 JSON」传到另一台设备后「📥 从剪贴板导入」。
+          </div>
+        </div>
+      </div>
+      <div class="config-list" id="configList" data-page-node-id="5vbeLT8kuUkBV9i1pRUz3X"></div>
+      <div class="tip" data-page-node-id="XG67aLl3PoWUCUz9EcUwmi">
+        💡 提示：可为每级水果单独设置<strong data-page-node-id="NE2V3UICrreIfhiDEeoDNR">图片URL</strong>或<strong data-page-node-id="YgCaFe7KVXHG6AQQHukUC9">上传本地图片</strong>（PNG/JPG/WebP/GIF）。
+        也可以点上方"📂 从文件夹批量导入"一次性导入整套 11 张图（按数字或水果名匹配，自动建立配置）。<br>
+        可保存多套配置随时切换（chip 列表）；改动不会自动保存，需主动"保存当前"或"另存为"。
+      </div>
+    </aside>
+  </main>
+
+</div>
+
+<!-- 手机端配置面板遮罩（点击关闭配置抽屉） -->
+<div id="cfgBackdrop" class="cfg-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);backdrop-filter:blur(2px);z-index:900;"></div>
+
+<!-- 图片「调整画面」裁剪弹窗 -->
+<div class="crop-modal hidden" id="cropModal">
+  <div class="crop-modal-backdrop" id="cropBackdrop"></div>
+  <div class="crop-modal-box">
+    <div class="crop-modal-head">
+      <h3>✂️ 调整图片画面</h3>
+      <button class="crop-close" id="cropCloseBtn" title="关闭">✕</button>
+    </div>
+    <div class="crop-levels" id="cropLevelList"></div>
+    <div class="crop-stage-wrap">
+      <canvas id="cropCanvas" class="crop-canvas" width="300" height="300"></canvas>
+      <div class="crop-hint">🖱 拖拽移动画面 · 滚轮或滑块缩放 · 圆形内为实际显示效果，比例保持不变</div>
+    </div>
+    <div class="crop-controls">
+      <label>缩放</label>
+      <input type="range" id="cropZoomSlider" min="1" max="4" step="0.01" value="1">
+      <button id="cropResetBtn" class="secondary">重置</button>
+      <button id="cropApplyAllBtn" class="secondary">应用到全部</button>
+    </div>
+    <div class="crop-info">
+      <span class="crop-level-name" id="cropLevelName"></span>
+      <span>高清等比裁剪，不会拉伸变形</span>
+    </div>
+    <div class="crop-info" style="color:#9ab;">
+      <span>💡 图片会自动压缩到高清尺寸；体积较大时，点「完成」会自动进一步压缩以便保存</span>
+    </div>
+    <div class="crop-modal-foot">
+      <button id="cropConfirmBtn">✓ 完成</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+ * 1. 水果数据 (可在此修改 11 级合成链)
+ *   半径缩放链：FRUIT_SIZE_SCALE(0.75) × [Lv5+再乘 FRUIT_LATE_SCALE(0.82)]
+ *   × FRUIT_FLOOR_SCALE(0.85)。最后一档是为了配合底部「木箱垫高」——
+ *   有效游戏高度缩短了约 14%，水果等比缩小 15%，难度基本维持不变。
+ *   Lv1–Lv4 的 FRUIT_LATE_SCALE 为 1（维持原手感比例）。
+ * ============================================================ */
+const FRUIT_SIZE_SCALE  = 0.75;
+const FRUIT_LATE_SCALE  = 0.82;   // Lv5 及以上在此基础上再缩
+const FRUIT_FLOOR_SCALE = 0.85;   // 配合木箱垫高的整体平衡缩放
+const FRUITS = [
+  { level: 1,  name: '葡萄',   radius: 22  * FRUIT_SIZE_SCALE * FRUIT_FLOOR_SCALE,                                         color: '#8E44AD' },
+  { level: 2,  name: '樱桃',   radius: 30  * FRUIT_SIZE_SCALE * FRUIT_FLOOR_SCALE,                                         color: '#E91E63' },
+  { level: 3,  name: '橘子',   radius: 40  * FRUIT_SIZE_SCALE * FRUIT_FLOOR_SCALE,                                         color: '#FF8C00' },
+  { level: 4,  name: '柠檬',   radius: 52  * FRUIT_SIZE_SCALE * FRUIT_FLOOR_SCALE,                                         color: '#F4D03F' },
+  { level: 5,  name: '猕猴桃', radius: 66  * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#7CB342' },
+  { level: 6,  name: '番茄',   radius: 82  * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#E74C3C' },
+  { level: 7,  name: '桃子',   radius: 100 * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#FFB7B2' },
+  { level: 8,  name: '菠萝',   radius: 118 * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#F1C40F' },
+  { level: 9,  name: '椰子',   radius: 134 * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#8B5A2B' },
+  { level: 10, name: '半西瓜', radius: 150 * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#FF6B6B' },
+  { level: 11, name: '大西瓜', radius: 165 * FRUIT_SIZE_SCALE * FRUIT_LATE_SCALE * FRUIT_FLOOR_SCALE, color: '#2ECC71' }
+];
+
+/* ============================================================
+ * 2. 命名多配置系统（圆形为主，形状选项已移除）
+ *   数据结构：
+ *     configStore = {
+ *       current: '默认',                    // 当前激活的配置名
+ *       configs: {
+ *         '默认':   { lv1: { image: '' }, lv2: { image: '' }, ... },  // 11 级
+ *         '卡通':   { ... },
+ *         '真实图': { ... }
+ *       }
+ *     }
+ *   localStorage key: daxigua_configs_v2
+ * ============================================================ */
+const STORE_KEY = 'daxigua_configs_v2';
+const DEFAULT_CONFIG_NAME = '默认';
+const DEFAULT_TITLE = '合成大西瓜';
+// 内置预设前缀（写入 configStore.configs 但不写 localStorage，不计入"未保存改动"）
+const BUILTIN_PREFIX = '__builtin_';
+// 是否启用内置预设（部署到公网时自动 true，本地 file:// 直接打开也可启用）
+const ENABLE_BUILTIN_PRESETS = true;
+
+function isBuiltinConfigName(name) {
+  return typeof name === 'string' && name.startsWith(BUILTIN_PREFIX);
+}
+// 把 __builtin_mina__ 之类的 key 转成显示用的「Mina」
+function builtinDisplayName(key) {
+  return key.slice(BUILTIN_PREFIX.length);
+}
+// 「默认」配置为只读基准：不能修改（改名/改图/改标题）、不能删除
+function isConfigLocked(name) {
+  return name === DEFAULT_CONFIG_NAME;
+}
+
+function makeEmptyConfig() {
+  const o = { title: DEFAULT_TITLE, names: FRUITS.map(f => f.name) };
+  for (let i = 1; i <= FRUITS.length; i++) o['lv' + i] = { image: '' };
+  return o;
+}
+
+// 当前激活配置的游戏名（标题）
+function getGameTitle() {
+  const cfg = configStore.configs[configStore.current];
+  return (cfg && cfg.title) || DEFAULT_TITLE;
+}
+// 当前激活配置的 11 级水果名数组
+function getActiveNames() {
+  const cfg = configStore.configs[configStore.current];
+  if (cfg && Array.isArray(cfg.names)) {
+    return FRUITS.map((f, i) => (cfg.names[i] && String(cfg.names[i]).trim()) || f.name);
+  }
+  return FRUITS.map(f => f.name);
+}
+// 某等级的水果名（自定义优先，缺省回退默认）
+function getFruitName(level) {
+  return getActiveNames()[level - 1] || FRUITS[level - 1].name;
+}
+// 写入游戏名（联动页面标题，标记未保存）
+function setGameTitle(title) {
+  if (isConfigLocked(configStore.current)) { flashMsg('「默认」配置为只读基准，不能修改；请切换到你自己的配置'); return; }
+  const cfg = configStore.configs[configStore.current];
+  cfg.title = (title || '').trim() || DEFAULT_TITLE;
+  hasUnsavedChanges = true;
+  updateTitleUI();
+  updateUnsavedBadge();
+}
+// 写入某级水果名（标记未保存）
+function setFruitName(level, name) {
+  if (isConfigLocked(configStore.current)) { flashMsg('「默认」配置为只读基准，不能修改；请切换到你自己的配置'); return; }
+  const cfg = configStore.configs[configStore.current];
+  if (!Array.isArray(cfg.names)) cfg.names = FRUITS.map(f => f.name);
+  cfg.names[level - 1] = (name || '').trim() || FRUITS[level - 1].name;
+  hasUnsavedChanges = true;
+  updateUnsavedBadge();
+  buildDifficultyTooltips(); // 水果名变更 → 难度说明卡片同步更新
+}
+// 联动顶部标题与浏览器标签页标题
+function updateTitleUI() {
+  const t = getGameTitle();
+  const h = document.querySelector('header h1');
+  if (h) h.textContent = '🍉 ' + t;
+  document.title = t;
+}
+// 同步「游戏名」输入框 + 顶部标题（切换配置/加载/导入后调用）
+function syncConfigMetaUI() {
+  const ti = document.getElementById('titleInput');
+  if (ti) {
+    ti.value = getGameTitle();
+    // 「默认」基准配置：游戏名输入框只读
+    ti.readOnly = isConfigLocked(configStore.current);
+  }
+  updateTitleUI();
+  buildDifficultyTooltips(); // 配置切换/加载/导入后，难度说明卡片按新配置的自定义名刷新
+}
+
+let configStore = {
+  current: DEFAULT_CONFIG_NAME,
+  configs: { [DEFAULT_CONFIG_NAME]: makeEmptyConfig() }
+};
+let hasUnsavedChanges = false;  // 当前编辑是否相对已保存版本有差异
+
+// 访问当前配置的简写：getActiveConfig(level) => cfg 对象
+function getActiveCfg(level) {
+  const name = configStore.current;
+  const cfg = configStore.configs[name];
+  if (!cfg) return { image: '' };
+  return cfg['lv' + level] || { image: '' };
+}
+
+function setActiveImg(level, url) {
+  if (isConfigLocked(configStore.current)) { flashMsg('「默认」配置为只读基准，不能修改；请切换到你自己的配置'); return; }
+  const name = configStore.current;
+  let cfg = configStore.configs[name];
+  if (!cfg) {
+    cfg = makeEmptyConfig();
+    configStore.configs[name] = cfg;
+  }
+  cfg['lv' + level] = { image: url, crop: { scale: 1, ox: 0, oy: 0 } };
+  hasUnsavedChanges = true;
+  updateUnsavedBadge();
+}
+
+// 读取某等级的裁剪参数（默认等比铺满，不缩放不偏移）
+function getCrop(level) {
+  const cfg = getActiveCfg(level);
+  const c = cfg.crop;
+  return { scale: (c && c.scale) || 1, ox: (c && c.ox) || 0, oy: (c && c.oy) || 0 };
+}
+
+// 写入某等级的裁剪参数
+function setCrop(level, crop) {
+  if (isConfigLocked(configStore.current)) { flashMsg('「默认」配置为只读基准，不能修改；请切换到你自己的配置'); return; }
+  const cfg = getActiveCfg(level);
+  cfg.crop = { scale: crop.scale, ox: crop.ox, oy: crop.oy };
+  hasUnsavedChanges = true;
+  updateUnsavedBadge();
+}
+
+// 复制单个水果配置（含图片 + 裁剪）
+function cloneFruitCfg(src) {
+  const s = src || {};
+  const o = { image: s.image || '' };
+  if (s.crop && typeof s.crop.scale === 'number') {
+    o.crop = { scale: s.crop.scale, ox: s.crop.ox || 0, oy: s.crop.oy || 0 };
+  }
+  return o;
+}
+
+function listConfigNames() { return Object.keys(configStore.configs); }
+
+function ensureConfigExists(name) {
+  if (!configStore.configs[name]) configStore.configs[name] = makeEmptyConfig();
+}
+
+function switchConfig(name) {
+  if (!configStore.configs[name]) return false;
+  if (configStore.current === name) return true;
+  if (hasUnsavedChanges && !confirm('当前配置有未保存的改动，切换将丢失。确定切换吗？')) {
+    return false;
+  }
+  configStore.current = name;
+  hasUnsavedChanges = false;
+  imageCache.clear();
+  // 预加载新配置的图
+  for (let lv = 1; lv <= FRUITS.length; lv++) {
+    const img = getActiveCfg(lv).image;
+    if (img) preloadImage(lv);
+  }
+  updateConfigManagerUI();
+  buildConfigPanel();
+  updateUnsavedBadge();
+  return true;
+}
+
+async function saveCurrentConfig() {
+  // 「默认」配置为只读基准，不能直接保存（避免覆盖出厂配置）
+  if (isConfigLocked(configStore.current)) {
+    alert('「默认」配置为只读基准，无法直接保存。\n\n如需保留改动，请在下方「另存为新配置」输入框里输入新名字保存为你的个人副本。');
+    const input = document.getElementById('configNameInput');
+    if (input) {
+      input.focus();
+      input.value = '我的配置';
+    }
+    return;
+  }
+  try {
+    const r = await persistConfigStore();
+    hasUnsavedChanges = false;
+    updateUnsavedBadge();
+    updateConfigManagerUI();
+    flashMsg(r && r.compressed
+      ? '✅ 已保存「' + configStore.current + '」（图片较大已自动压缩）'
+      : '✅ 已保存「' + configStore.current + '」');
+  } catch (e) {
+    alert('❌ 保存失败：' + e.message + '\n\n可能是 localStorage 配额已满。建议用图片 URL 而非 Base64。');
+  }
+}
+
+async function saveAsNewConfig(rawName) {
+  const name = (rawName || '').trim();
+  if (!name) { alert('请填写配置名'); return false; }
+  if (isBuiltinConfigName(name)) {
+    alert('「' + name + '」是内置预设保留名，请用其他名字（例如「' + builtinDisplayName(name) + '（我的）」）。');
+    return false;
+  }
+  if (name === configStore.current) { saveCurrentConfig(); return true; }
+  if (configStore.configs[name] && !confirm('已存在配置「' + name + '」，要覆盖吗？')) return false;
+  // 复制当前配置到新名字
+  const cur = configStore.configs[configStore.current];
+  const copy = {};
+  for (const k of Object.keys(cur)) {
+    if (k === 'title') copy.title = cur.title;
+    else if (k === 'names') copy.names = cur.names.slice();
+    else copy[k] = { image: cur[k].image || '' };
+  }
+  configStore.configs[name] = copy;
+  configStore.current = name;
+  hasUnsavedChanges = false;
+  try {
+    const r = await persistConfigStore();
+    if (r && r.compressed) flashMsg('📋 已另存为「' + name + '」（图片较大已自动压缩）');
+  } catch (e) {
+    alert('❌ 另存失败：' + e.message);
+    return false;
+  }
+  updateConfigManagerUI();
+  buildConfigPanel();
+  updateUnsavedBadge();
+  flashMsg('📋 已另存为「' + name + '」');
+  return true;
+}
+
+async function deleteCurrentConfig() {
+  const name = configStore.current;
+  if (name === DEFAULT_CONFIG_NAME) { alert('默认配置不能删除'); return; }
+  if (!confirm('确定要删除配置「' + name + '」吗？此操作不可撤销。')) return;
+  delete configStore.configs[name];
+  // 切回默认配置
+  configStore.current = DEFAULT_CONFIG_NAME;
+  hasUnsavedChanges = false;
+  try {
+    await persistConfigStore();
+  } catch (e) {
+    alert('❌ 删除失败：' + e.message);
+    return;
+  }
+  imageCache.clear();
+  updateConfigManagerUI();
+  buildConfigPanel();
+  updateUnsavedBadge();
+  flashMsg('🗑 已删除「' + name + '」，当前配置切回默认');
+}
+
+// 默认配置作为“只读基准”锁定（不可改不可删）；其余配置可编辑/删除。
+// 需要修改默认配置时，请先用「📋 另存为」复制成自己的配置再改。
+
+// localStorage 配额守卫常量
+const STORE_BUDGET = 4600000;   // 总 Base64 上限（约 4.6MB，留安全余量）
+const SINGLE_IMG_MAX = 800000;  // 单图 Base64 上限（约 800KB）
+
+// 把单张 Base64 图压缩到 targetBytes 以内（异步）。返回压缩后 dataUrl，失败返回 null。
+function compressDataUrlToSize(dataUrl, targetBytes, startMaxSize = 1024) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > startMaxSize || h > startMaxSize) {
+        if (w >= h) { h = Math.round(h * startMaxSize / w); w = startMaxSize; }
+        else { w = Math.round(w * startMaxSize / h); h = startMaxSize; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#fff';
+      cx.fillRect(0, 0, w, h);
+      cx.drawImage(img, 0, 0, w, h);
+      let out = c.toDataURL('image/jpeg', 0.8);
+      if (out.length > targetBytes) out = c.toDataURL('image/jpeg', 0.7);
+      if (out.length > targetBytes) out = c.toDataURL('image/jpeg', 0.6);
+      if (out.length > targetBytes) out = c.toDataURL('image/jpeg', 0.5);
+      // 仍超 → 缩小尺寸再压
+      if (out.length > targetBytes) {
+        const scale = Math.max(0.42, Math.sqrt(targetBytes / out.length));
+        const w2 = Math.max(64, Math.round(w * scale));
+        const h2 = Math.max(64, Math.round(h * scale));
+        c.width = w2; c.height = h2;
+        cx.fillStyle = '#fff'; cx.fillRect(0, 0, w2, h2);
+        cx.drawImage(img, 0, 0, w2, h2);
+        out = c.toDataURL('image/jpeg', 0.6);
+      }
+      resolve(out.length <= targetBytes ? out : null);
+    };
+    img.onerror = () => resolve(null);
+    img.src = dataUrl;
+  });
+}
+
+// 把所有非内置配置图压缩到总预算以内；返回 true 表示发生了压缩
+async function compressAllImagesToFit(totalBudget) {
+  const budget = totalBudget || STORE_BUDGET;
+  const names = Object.keys(configStore.configs).filter(n => !isBuiltinConfigName(n));
+  // 收集所有 data: 图片引用
+  const list = [];
+  for (const name of names) {
+    const cfg = configStore.configs[name];
+    for (const k of Object.keys(cfg)) {
+      if (k === 'title' || k === 'names') continue;
+      const img = (cfg[k] && cfg[k].image) || '';
+      if (img.startsWith('data:')) list.push({ name, k, img });
+    }
+  }
+  if (list.length === 0) return false;
+  let changed = false;
+
+  const perImage = Math.max(120000, Math.floor(budget / list.length));
+  const singleCap = Math.min(perImage, 620000);
+
+  // 阶段1：单图过大先压到 singleCap
+  for (const it of list) {
+    if (it.img.length > singleCap) {
+      const r = await compressDataUrlToSize(it.img, singleCap);
+      if (r) { it.img = r; changed = true; }
+    }
+  }
+  // 阶段2：总字节仍超限 → 按均分预算强制压每张
+  let total = list.reduce((s, it) => s + it.img.length, 0);
+  if (total > budget) {
+    for (const it of list) {
+      if (it.img.length > perImage) {
+        const r = await compressDataUrlToSize(it.img, perImage, 768);
+        if (r) { it.img = r; changed = true; }
+      }
+    }
+  }
+  // 阶段3：仍超限 → 缩到更小尺寸强压
+  total = list.reduce((s, it) => s + it.img.length, 0);
+  if (total > budget) {
+    for (const it of list) {
+      const r = await compressDataUrlToSize(it.img, perImage, 512);
+      if (r) { it.img = r; changed = true; }
+    }
+  }
+  // 写回原配置
+  for (const it of list) configStore.configs[it.name][it.k].image = it.img;
+  return changed;
+}
+
+function persistConfigStore() {
+  // 构建要写入的「瘦身」配置（内置预设不写 localStorage）
+  const buildSlim = () => {
+    const slimConfigs = {};
+    let totalBytes = 0;
+    for (const name of Object.keys(configStore.configs)) {
+      if (isBuiltinConfigName(name)) continue;
+      const src = configStore.configs[name];
+      const dst = {};
+      for (const k of Object.keys(src)) {
+        if (k === 'title') { dst.title = src.title || DEFAULT_TITLE; continue; }
+        if (k === 'names') { dst.names = (Array.isArray(src.names) && src.names.slice()) || FRUITS.map(f => f.name); continue; }
+        const img = src[k].image || '';
+        dst[k] = cloneFruitCfg(src[k]);
+        if (img.startsWith('data:')) totalBytes += img.length;
+      }
+      slimConfigs[name] = dst;
+    }
+    return { slimConfigs, totalBytes };
+  };
+
+  // 一级：若合计超限，自动压缩所有图直至达标
+  return compressAllImagesToFit(STORE_BUDGET).then(compressed => {
+    let { slimConfigs, totalBytes } = buildSlim();
+    let payload = JSON.stringify({ current: configStore.current, configs: slimConfigs });
+    try {
+      localStorage.setItem(STORE_KEY, payload);
+      return { compressed, totalBytes };
+    } catch (e) {
+      // 二级：仍写不进（QuotaExceeded），再压一档后重试
+      return compressAllImagesToFit(Math.round(STORE_BUDGET * 0.85)).then(() => {
+        ({ slimConfigs, totalBytes } = buildSlim());
+        payload = JSON.stringify({ current: configStore.current, configs: slimConfigs });
+        localStorage.setItem(STORE_KEY, payload);
+        return { compressed: true, totalBytes };
+      });
+    }
+  });
+}
+
+function loadConfigStore() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.configs && typeof parsed.current === 'string') {
+      // 先保留当前已加载的内置预设（init 阶段 loadBuiltinPresets 会先注入）
+      const builtinSnapshot = {};
+      for (const k of Object.keys(configStore.configs)) {
+        if (isBuiltinConfigName(k)) builtinSnapshot[k] = configStore.configs[k];
+      }
+      // 健壮性：补齐缺失等级
+      const cfgs = {};
+      for (const name of Object.keys(parsed.configs)) {
+        if (isBuiltinConfigName(name)) continue; // 跳过可能的旧版内置预设 key
+        const src = parsed.configs[name] || {};
+        const dst = makeEmptyConfig();
+        // 恢复自定义游戏名 + 水果名
+        if (typeof src.title === 'string' && src.title.trim()) dst.title = src.title.trim();
+        if (Array.isArray(src.names)) {
+          dst.names = FRUITS.map((f, i) => (src.names[i] && String(src.names[i]).trim()) || f.name);
+        }
+        for (let i = 1; i <= FRUITS.length; i++) {
+          const k = 'lv' + i;
+          dst[k] = cloneFruitCfg(src[k]);
+        }
+        cfgs[name] = dst;
+      }
+      if (!cfgs[DEFAULT_CONFIG_NAME]) cfgs[DEFAULT_CONFIG_NAME] = makeEmptyConfig();
+      if (!cfgs[parsed.current] || isBuiltinConfigName(parsed.current)) parsed.current = DEFAULT_CONFIG_NAME;
+      // 把内置预设还原进去
+      Object.assign(cfgs, builtinSnapshot);
+      // 原地修改 configStore（避免 let 重新赋值让外部引用失效）
+      for (const k of Object.keys(configStore.configs)) delete configStore.configs[k];
+      Object.assign(configStore.configs, cfgs);
+      configStore.current = parsed.current;
+    }
+  } catch (e) {
+    console.warn('配置加载失败', e);
+  }
+  // 预加载激活配置的图
+  for (let lv = 1; lv <= FRUITS.length; lv++) {
+    const img = getActiveCfg(lv).image;
+    if (img) preloadImage(lv);
+  }
+}
+
+/* ============================================================
+ * 多设备同步：复制 / 粘贴 / 导出文件 / 导入文件
+ * - 通过文件（导出/导入）或剪贴板实现跨设备同步，含最高分
+ * ============================================================ */
+const SYNC_PAYLOAD_TYPE = 'daxigua-config-export';
+const SYNC_PAYLOAD_VERSION = 1;
+
+// 构造导出 payload（含所有配置 + 当前选中 + 最高分）
+function buildConfigExportPayload() {
+  return {
+    type: SYNC_PAYLOAD_TYPE,
+    version: SYNC_PAYLOAD_VERSION,
+    exportedAt: new Date().toISOString(),
+    highScore: game.highScore, // 最高分随配置一起导出，跨设备同步
+    configStore: JSON.parse(JSON.stringify(configStore)) // 深拷贝，避免导出后又被改动
+  };
+}
+
+/* ============================================================
+ * 内置预设（部署到公网后，所有用户打开链接自动获得）
+ * - manifest: 从 /presets/manifest.json 读取预设清单
+ * - 每张图从公网目录异步加载，转为 dataUrl 写入 configStore.configs['__builtin_xxx']
+ * - 不写 localStorage（每次启动重新加载，避免 5MB 配额问题）
+ * ============================================================ */
+
+const BUILTIN_PRESETS_LOADING = {
+  manifest: null,        // 解析后的 manifest 对象
+  loaded: false,         // 是否已加载完成（成功或失败都算结束）
+  loading: false,        // 加载中（防止并发）
+  failed: false,         // 是否失败
+  totalBytes: 0          // 已下载的图片总字节数（debug 用）
+};
+
+// 把网络图片 URL 转成 dataURL（用于写入 configStore）
+async function fetchImageAsDataUrl(url) {
+  const resp = await fetch(url, { cache: 'force-cache' });
+  if (!resp.ok) throw new Error('HTTP ' + resp.status + ' for ' + url);
+  const blob = await resp.blob();
+  return await new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(new Error('FileReader 失败'));
+    fr.readAsDataURL(blob);
+  });
+}
+
+// 内置预设定义（直接内联，不依赖 fetch，file:// 双击打开也能加载）
+// 图片用「公网相对 URL」引用（不转 Base64、不占 localStorage 配额），因此预设可作为普通配置编辑/删除/保存
+const BUILTIN_PRESET_DEFS = [
+  {
+    id: 'mina',
+    name: 'Mina（名井南）',
+    title: '合成咪老大',
+    names: ['小黑咪','公主咪','初恋咪','白金咪','卷发咪','偶运咪','美乐蒂咪','学姐咪','比耶咪','蝴蝶结咪','咪老大'],
+    imageBase: 'presets/mina',
+    images: ['1.jpg','2.jpg','3.jpg','4.jpg','5.jpg','6.jpg','7.jpg','8.jpg','9.jpg','10.jpg','11.jpg']
+  },
+  {
+    id: 'sana',
+    name: 'Sana（凑崎纱夏）',
+    title: '合成狗老大',
+    names: ['金发狗','公主狗','大波浪狗','嘟嘴狗','蝴蝶结狗','比耶狗','耳麦狗','自拍狗','粉发狗','眼镜狗','狗老大'],
+    imageBase: 'presets/sana',
+    images: ['1.jpg','2.jpg','3.jpg','4.jpg','5.jpg','6.jpg','7.jpg','8.jpg','9.png','10.jpg','11.jpg']
+  }
+];
+
+// 只"种子化"一次的标记：一旦写入，用户对 Mina/Sana 的编辑/删除就不会被下次打开覆盖
+const BUILTIN_SEED_KEY = 'daxigua_builtin_seeded';
+
+// 种子化内置预设：首次打开时把预设作为「可编辑的普通配置」写入 configStore + localStorage
+async function loadBuiltinPresets() {
+  if (!ENABLE_BUILTIN_PRESETS) return;
+  if (BUILTIN_PRESETS_LOADING.loading) return;
+  // 已种子化过：用户可能已编辑/删除，不再覆盖
+  try {
+    if (localStorage.getItem(BUILTIN_SEED_KEY)) {
+      BUILTIN_PRESETS_LOADING.loaded = true;
+      return;
+    }
+  } catch (e) {}
+  BUILTIN_PRESETS_LOADING.loading = true;
+
+  try {
+    const defs = BUILTIN_PRESET_DEFS || [];
+    BUILTIN_PRESETS_LOADING.manifest = { presets: defs };
+    let count = 0;
+    for (const preset of defs) {
+      const key = preset.id;  // 普通配置名（Mina / Sana），不戴 __builtin_ 前缀，可作为普通配置编辑删除
+      if (configStore.configs[key]) continue;
+
+      const cfg = makeEmptyConfig();
+      if (preset.title && typeof preset.title === 'string') {
+        cfg.title = preset.title.trim();
+      }
+      // 自定义各级水果名（11 项对应 Lv1~Lv11）
+      if (Array.isArray(preset.names) && preset.names.length >= FRUITS.length) {
+        cfg.names = FRUITS.map((f, i) => {
+          const v = preset.names[i];
+          return (v && String(v).trim()) || f.name;
+        });
+      }
+      // 图片用相对 URL 引用（公网部署下同源，file:// 下相对路径也能加载）
+      const baseUrl = preset.imageBase || ('presets/' + preset.id);
+      if (Array.isArray(preset.images)) {
+        for (let lv = 1; lv <= FRUITS.length; lv++) {
+          const file = preset.images[lv - 1];
+          if (!file) continue;
+          cfg['lv' + lv] = { image: baseUrl + '/' + file, crop: { scale: 1, ox: 0, oy: 0 } };
+        }
+      }
+      configStore.configs[key] = cfg;
+      count++;
+    }
+    BUILTIN_PRESETS_LOADING.loaded = true;
+    // 落库（图片是 URL，体积很小，能正常写入 localStorage）
+    if (count > 0) {
+      try {
+        await persistConfigStore();
+        localStorage.setItem(BUILTIN_SEED_KEY, '1');
+      } catch (e) {
+        console.warn('内置预设种子化持久化失败：', e);
+      }
+      console.info('内置预设已种子化：' + defs.map(d => d.id).join(', '));
+    }
+  } catch (e) {
+    console.warn('内置预设加载失败：', e);
+    BUILTIN_PRESETS_LOADING.failed = true;
+  } finally {
+    BUILTIN_PRESETS_LOADING.loading = false;
+  }
+}
+
+// 把导出的 payload 解析并应用到当前 configStore（覆盖整个 configStore）
+async function applyConfigImportPayload(payload) {
+  if (!payload || payload.type !== SYNC_PAYLOAD_TYPE) {
+    throw new Error('JSON 格式不对（不是本游戏的配置）');
+  }
+  if (typeof payload.version !== 'number' || payload.version > SYNC_PAYLOAD_VERSION) {
+    throw new Error('配置版本过新，请升级游戏后再导入');
+  }
+  if (!payload.configStore || !payload.configStore.configs) {
+    throw new Error('JSON 内容缺少配置数据');
+  }
+  // 健壮性：补齐缺失字段
+  const cs = payload.configStore;
+  const cfgs = {};
+  for (const name of Object.keys(cs.configs || {})) {
+    const src = cs.configs[name] || {};
+    const dst = makeEmptyConfig();
+    if (typeof src.title === 'string' && src.title.trim()) dst.title = src.title.trim();
+    if (Array.isArray(src.names)) {
+      dst.names = FRUITS.map((f, i) => (src.names[i] && String(src.names[i]).trim()) || f.name);
+    }
+    for (let i = 1; i <= FRUITS.length; i++) {
+      const k = 'lv' + i;
+      dst[k] = cloneFruitCfg(src[k]);
+    }
+    cfgs[name] = dst;
+  }
+  if (Object.keys(cfgs).length === 0) throw new Error('JSON 里没有任何配置');
+  // 同步最高分：取「本地」和「导入」两者较大值，避免把最高分降回去
+  if (typeof payload.highScore === 'number' && isFinite(payload.highScore)) {
+    const importedHigh = Math.max(0, Math.floor(payload.highScore));
+    if (importedHigh > game.highScore) {
+      game.highScore = importedHigh;
+      localStorage.setItem('daxigua_high', String(game.highScore));
+    }
+  }
+  // 保留内置预设：先快照，应用导入后还原
+  const builtinSnapshot = {};
+  for (const k of Object.keys(configStore.configs)) {
+    if (isBuiltinConfigName(k)) builtinSnapshot[k] = configStore.configs[k];
+  }
+  // 原地修改 configStore（避免 let 重新赋值让外部引用失效）
+  const newCurrent = cs.current || Object.keys(cfgs)[0];
+  // 清空旧 configs（不包括内置预设——它们会被还原回去）
+  for (const k of Object.keys(configStore.configs)) delete configStore.configs[k];
+  // 过滤掉可能含 __builtin_ 前缀的导入 key，避免污染内置预设命名空间
+  for (const k of Object.keys(cfgs)) {
+    if (isBuiltinConfigName(k)) delete cfgs[k];
+  }
+  Object.assign(configStore.configs, cfgs);
+  // 还原内置预设
+  Object.assign(configStore.configs, builtinSnapshot);
+  // current 如果指向被跳过的 builtin，重置为默认
+  configStore.current = isBuiltinConfigName(newCurrent) ? DEFAULT_CONFIG_NAME : (newCurrent in configStore.configs ? newCurrent : DEFAULT_CONFIG_NAME);
+  hasUnsavedChanges = true; // 导入的内容先标记未保存，持久化成功后再清
+  // 尝试持久化；超配额等失败时自动压缩或给用户明确提示（避免"看着能用、刷新就丢"）
+  let persistError = null;
+  let persistedCompressed = false;
+  try {
+    const r = await persistConfigStore();
+    hasUnsavedChanges = false;
+    persistedCompressed = !!(r && r.compressed);
+  } catch (e) { persistError = e; }
+  buildConfigPanel();
+  updateConfigManagerUI();
+  syncConfigMetaUI();
+  document.getElementById('highScoreEl').textContent = game.highScore;
+  // 重新预加载图片
+  for (let lv = 1; lv <= FRUITS.length; lv++) {
+    const img = getActiveCfg(lv).image;
+    if (img) preloadImage(lv);
+  }
+}
+
+// 复制配置 JSON 到剪贴板
+async function copyConfigToClipboard() {
+  const json = JSON.stringify(buildConfigExportPayload());
+  let ok = false;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(json);
+      ok = true;
+    }
+  } catch (e) { ok = false; }
+  if (!ok) {
+    // 兜底：用隐藏 textarea + execCommand
+    const ta = document.createElement('textarea');
+    ta.value = json;
+    ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+    document.body.appendChild(ta);
+    ta.select();
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    ta.remove();
+  }
+  if (ok) {
+    flashMsg('📋 已复制配置 JSON 到剪贴板（' + (json.length / 1024).toFixed(1) + ' KB）');
+  } else {
+    // 弹窗让用户手动复制
+    const w = window.open('', '_blank', 'width=600,height=400');
+    if (w) {
+      w.document.write('<title>复制配置 JSON</title><textarea style="width:100%;height:90vh;font-size:11px;">' + json.replace(/</g, '&lt;') + '</textarea>');
+      flashMsg('⚠ 自动复制失败，新窗口已打开，请手动 Ctrl+A / Ctrl+C');
+    } else {
+      alert('复制失败，请改用「导出为文件」按钮');
+    }
+  }
+}
+
+// 从剪贴板读取并导入配置
+async function pasteConfigFromClipboard() {
+  let text = '';
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      text = await navigator.clipboard.readText();
+    }
+  } catch (e) { text = ''; }
+  if (!text) {
+    text = prompt('剪贴板读取失败，请粘贴 JSON 内容：') || '';
+  }
+  if (!text) return;
+  await importConfigFromText(text, '剪贴板');
+}
+
+// 从 JSON 文本导入
+async function importConfigFromText(text, sourceLabel) {
+  let payload;
+  try { payload = JSON.parse(text); }
+  catch (e) { alert('❌ JSON 解析失败：' + e.message); return; }
+  const cfgCount = payload && payload.configStore && payload.configStore.configs ? Object.keys(payload.configStore.configs).length : 0;
+  const msg = cfgCount > 0
+    ? `从「${sourceLabel}」导入将覆盖本地所有配置（共 ${cfgCount} 套：${Object.keys(payload.configStore.configs).join('、')}）。继续？`
+    : 'JSON 内容不含配置数据，是否继续？';
+  if (!confirm(msg)) return;
+  try {
+    await applyConfigImportPayload(payload);
+    // applyConfigImportPayload 内部已尝试持久化（超限会自动压缩）；这里再读一次 hasUnsavedChanges 判定是否成功
+    if (hasUnsavedChanges) {
+      alert('⚠️ 已导入 ' + cfgCount + ' 套配置，但图片较多（超过浏览器 5MB 本地存储上限），\n\n当前会话可正常游戏，但刷新页面后配置会丢失。\n\n建议：减小图片尺寸（<=800KB/张）或改用图片 URL 形式。');
+      flashMsg('⚠️ 已导入 ' + cfgCount + ' 套配置（未持久化，刷新会丢失）');
+    } else {
+      flashMsg('✅ 已从「' + sourceLabel + '」导入 ' + cfgCount + ' 套配置');
+    }
+  } catch (e) {
+    alert('❌ 导入失败：' + e.message);
+  }
+}
+
+// 导出为 JSON 文件下载
+function exportConfigToFile() {
+  const payload = buildConfigExportPayload();
+  const json = JSON.stringify(payload);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  a.href = url;
+  a.download = '合成大西瓜-配置-' + ts + '.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  flashMsg('💾 已导出配置文件（' + (json.length / 1024).toFixed(1) + ' KB）');
+}
+
+// 从 JSON 文件导入
+function importConfigFromFile(file) {
+  if (!file) return;
+  if (file.size > 20 * 1024 * 1024) {
+    alert('文件过大（' + (file.size / 1024 / 1024).toFixed(1) + ' MB），超过 20MB 限制。请用「复制配置 JSON」分块同步。');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = async e => await importConfigFromText(String(e.target.result || ''), file.name);
+  reader.onerror = () => alert('❌ 文件读取失败：' + file.name);
+  reader.readAsText(file, 'utf-8');
+}
+
+function updateUnsavedBadge() {
+  const b = document.getElementById('unsavedBadge');
+  if (b) b.style.display = hasUnsavedChanges ? 'inline' : 'none';
+}
+
+function flashMsg(text) {
+  // 简单提示条（不阻塞，2.5 秒后消失）
+  const tip = document.createElement('div');
+  tip.textContent = text;
+  tip.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:10px 20px;border-radius:8px;z-index:99999;font-size:14px;box-shadow:0 4px 20px rgba(0,0,0,0.4);font-weight:bold;';
+  document.body.appendChild(tip);
+  setTimeout(() => { tip.style.opacity = '0'; tip.style.transition = 'opacity 0.4s'; }, 2200);
+  setTimeout(() => tip.remove(), 2700);
+}
+
+// 合成大西瓜成功弹层（Lv10→Lv11 时调用）
+function showSuccessModal(name) {
+  // 已有弹层时不重复弹
+  if (document.querySelector('.success-modal')) return;
+  const safe = String(name || '大西瓜')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const modal = document.createElement('div');
+  modal.className = 'success-modal';
+  modal.innerHTML = `
+    <div class="success-card">
+      <span class="emoji">🎉</span>
+      <div class="title">恭喜合成</div>
+      <div class="name">${safe}</div>
+      <div class="succeed">成功！</div>
+      <div class="hint">点击任意位置关闭 · 3 秒自动关闭</div>
+    </div>
+  `;
+  const dismiss = () => {
+    if (!modal.parentNode) return;
+    modal.classList.add('fading');
+    setTimeout(() => modal.remove(), 500);
+  };
+  modal.addEventListener('click', dismiss);
+  document.body.appendChild(modal);
+  setTimeout(dismiss, 3000);
+}
+
+/* ============================================================
+ * 3. 游戏常量
+ * ============================================================ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// 逻辑坐标（物理引擎使用的宽高）恒定 420×720；
+// 画布实际分辨率 = 逻辑尺寸 × 设备像素比 (DPR)，保证高清屏/普通屏都清晰不发虚。
+const LOGIC_W = 420;
+const LOGIC_H = 720;
+let DPR = Math.max(1, window.devicePixelRatio || 1);
+
+function setupCanvasResolution() {
+  DPR = Math.max(1, window.devicePixelRatio || 1);
+  canvas.width = Math.round(LOGIC_W * DPR);
+  canvas.height = Math.round(LOGIC_H * DPR);
+  // 后续所有绘制仍用逻辑坐标，这里统一放大到实际像素
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+}
+setupCanvasResolution();
+window.addEventListener('resize', () => setupCanvasResolution());
+
+const CANVAS_W = LOGIC_W;   // 420
+const CANVAS_H = LOGIC_H;   // 720
+const WALL_L = 15;                  // 左墙内侧
+const WALL_R = CANVAS_W - 15;       // 右墙内侧
+const WOOD_H = 80;                  // 底部木箱垫高（缩短有效游戏高度，适配手机；配合 FRUIT_FLOOR_SCALE 保持难度）
+const FLOOR_Y = CANVAS_H - 15 - WOOD_H;   // 地面（木箱顶面）
+const SPAWN_LINE = 35;              // 顶部投放线（水果顶部对齐到这条线以上，位于警戒线上方）
+const GAME_OVER_LINE = 140;         // 警戒线（画在投放线下方，堆积水果超过此线才判负）
+const DANGER_GRACE_MS = 10000;      // 超过警戒线后的宽限时长（10 秒），期间消除则继续，否则判负
+const SETTLE_FRAMES = 20;           // 连续“接近静止”达到该帧数才算真正落定堆积（排除刚投放/下落中路过警戒线的水果）
+const DROP_COOLDOWN = 18;           // 投放冷却 (帧)
+const SCORE_UNIT = 10;              // 合成基础得分 = level * SCORE_UNIT
+
+/* ============================================================
+ * 4. 物理参数
+ * ============================================================ */
+const PHYS = {
+  gravity: 0.78,    // 重力加速度（原 0.55，加大让水果下落更快）
+  airDamp: 0.995,   // 空气阻尼
+  wallRest: 0.35,   // 边界反弹系数
+  resti: 0.18,      // 水果间弹性
+  iters: 8,         // 碰撞解算迭代
+  floorFric: 0.82,  // 地面摩擦
+  maxSpeed: 27      // 速度上限（原 22，配合更高重力让下落节奏更快）
+};
+
+/* ============================================================
+ * 5. 游戏状态
+ * ============================================================ */
+const game = {
+  fruits: [],
+  score: 0,
+  highScore: parseInt(localStorage.getItem('daxigua_high') || '0'),
+  currentLevel: 1,
+  nextLevel: 1,
+  isGameOver: false,
+  mouseX: CANVAS_W / 2,
+  canDrop: true,
+  dropCd: 0,
+  idCounter: 0,
+  spawnAnim: 0,      // 用于新水果入场动画
+  dangerActive: false, // 是否处于“超过警戒线”的危险状态
+  dangerDeadline: 0    // 危险判负的毫秒时间戳（now + DANGER_GRACE_MS）
+};
+
+/* ============================================================
+ * 6. 图片缓存
+ * ============================================================ */
+const imageCache = new Map();
+
+function getImage(level) {
+  const cfg = getActiveCfg(level);
+  if (!cfg || !cfg.image) return null;
+  if (imageCache.has(level)) return imageCache.get(level);
+  const img = new Image();
+  img.onload = () => { /* 自动使用，下一帧会重新画 */ };
+  img.onerror = () => { imageCache.delete(level); console.warn('图片加载失败:', level); };
+  img.src = cfg.image;
+  imageCache.set(level, img);
+  return img;
+}
+
+function preloadImage(level) {
+  imageCache.delete(level);
+  getImage(level);
+}
+
+// 以「等比覆盖」方式把图片画到半径为 r 的圆内（不变形，可裁剪/平移/缩放）
+// 返回是否成功绘制图片；失败则调用方走程序绘制兜底
+function drawFruitImage(ctx, level, r) {
+  const img = getImage(level);
+  if (!img || !img.complete || !img.naturalWidth || !img.naturalHeight) return false;
+  const crop = getCrop(level);
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  // 覆盖式缩放：让图片最短边刚好铺满直径，保持宽高比不变
+  const base = Math.max((r * 2) / iw, (r * 2) / ih);
+  const scale = base * crop.scale;
+  const dw = iw * scale;
+  const dh = ih * scale;
+  // 平移：把「超出圆的部分」按 ox/oy（-1~1）偏移
+  const ox = (dw - r * 2) / 2 * crop.ox;
+  const oy = (dh - r * 2) / 2 * crop.oy;
+  ctx.drawImage(img, -dw / 2 + ox, -dh / 2 + oy, dw, dh);
+  return true;
+}
+
+/* ============================================================
+ * 7. 工具函数
+ * ============================================================ */
+function lightenColor(hex, amount) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.min(255, (n >> 16) + amount * 255);
+  const g = Math.min(255, ((n >> 8) & 0xff) + amount * 255);
+  const b = Math.min(255, (n & 0xff) + amount * 255);
+  return `rgb(${r|0},${g|0},${b|0})`;
+}
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+/* ============================================================
+ * 8. 水果类
+ * ============================================================ */
+class Fruit {
+  constructor(level, x, y) {
+    this.id = ++game.idCounter;
+    this.level = level;
+    this.x = x;
+    this.y = y;
+    this.vx = (Math.random() - 0.5) * 0.6;
+    this.vy = 0;
+    this.radius = FRUITS[level - 1].radius * currentSizeScale;
+    this.mass = this.radius * this.radius;
+    this.angle = Math.random() * Math.PI * 2;
+    this.angVel = (Math.random() - 0.5) * 0.04;
+    this.overLineFrames = 0;
+    this.settledFrames = 0;    // 连续“接近静止”帧计数（用于判定是否真正落定堆积）
+    this.spawnTimer = 12;     // 入场动画
+    this.px = x;              // 上一帧位置快照（用于净位移静止判定）
+    this.py = y;
+  }
+}
+
+/* ============================================================
+ * 9. 物理引擎 — 重力 + 碰撞响应
+ * ============================================================ */
+function updatePhysics() {
+  // 9.1 应用重力与空气阻尼，更新位置
+  for (const f of game.fruits) {
+    f.px = f.x;               // 记录本帧起点（供净位移静止判定）
+    f.py = f.y;
+    if (f.spawnTimer > 0) f.spawnTimer--;
+
+    f.vy += PHYS.gravity;
+    f.vx *= PHYS.airDamp;
+    f.vy *= PHYS.airDamp;
+    if (Math.abs(f.vx) > PHYS.maxSpeed) f.vx = Math.sign(f.vx) * PHYS.maxSpeed;
+    if (Math.abs(f.vy) > PHYS.maxSpeed) f.vy = Math.sign(f.vy) * PHYS.maxSpeed;
+    f.x += f.vx;
+    f.y += f.vy;
+    f.angle += f.angVel;
+  }
+
+  // 9.2 多次迭代解算碰撞（解决堆叠稳定性）
+  for (let iter = 0; iter < PHYS.iters; iter++) {
+    // 边界
+    for (const f of game.fruits) {
+      if (f.x - f.radius < WALL_L) {
+        f.x = WALL_L + f.radius;
+        f.vx = -f.vx * PHYS.wallRest;
+        f.angVel *= 0.8;
+      } else if (f.x + f.radius > WALL_R) {
+        f.x = WALL_R - f.radius;
+        f.vx = -f.vx * PHYS.wallRest;
+        f.angVel *= 0.8;
+      }
+      if (f.y + f.radius > FLOOR_Y) {
+        f.y = FLOOR_Y - f.radius;
+        f.vy = -f.vy * PHYS.wallRest;
+        f.vx *= PHYS.floorFric;
+        f.angVel *= 0.7;
+      }
+      // 顶部 (顶部无墙)
+    }
+
+    // 水果之间两两碰撞
+    const list = game.fruits;
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        resolvePair(list[i], list[j]);
+      }
+    }
+  }
+}
+
+function resolvePair(a, b) {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const distSq = dx * dx + dy * dy;
+  const minDist = a.radius + b.radius;
+  if (distSq >= minDist * minDist) return;
+
+  const dist = Math.sqrt(distSq) || 0.001;
+  const nx = dx / dist;
+  const ny = dy / dist;
+  const overlap = minDist - dist;
+
+  // 位置修正（按质量分配）
+  const totalM = a.mass + b.mass;
+  const aShare = b.mass / totalM;
+  const bShare = a.mass / totalM;
+
+  // 关键：同等级且非最大级的水果，保留大部分重叠用于后续合并
+  // 每次迭代只修正 3%，8次迭代后保留 ≈78% 重叠 → checkMerges 可触发
+  // 同等级更“黏”，降低被其它等级水果挤开后仍能保持接触
+  // 不同等级仍做 100% 修正 + 速度反弹，保持正常物理
+  const canMerge = a.level === b.level && a.level < FRUITS.length;
+  const fixRatio = canMerge ? 0.03 : 1.0;
+  const fixOverlap = overlap * fixRatio;
+
+  a.x -= nx * fixOverlap * aShare;
+  a.y -= ny * fixOverlap * aShare;
+  b.x += nx * fixOverlap * bShare;
+  b.y += ny * fixOverlap * bShare;
+
+  // 同等级不做速度反弹，避免相互弹开
+  if (canMerge) return;
+
+  // 速度交换（弹性碰撞）
+  const rvx = b.vx - a.vx;
+  const rvy = b.vy - a.vy;
+  const vn = rvx * nx + rvy * ny;
+  if (vn >= 0) return;     // 已经在远离
+
+  const e = PHYS.resti;
+  const j = -(1 + e) * vn / (1 / a.mass + 1 / b.mass);
+  const jx = j * nx;
+  const jy = j * ny;
+  a.vx -= jx / a.mass;
+  a.vy -= jy / a.mass;
+  b.vx += jx / b.mass;
+  b.vy += jy / b.mass;
+
+  // 简化角速度（让堆叠后有滚动感）
+  const torque = (a.x * ny - a.y * nx - (b.x * ny - b.y * nx)) * 0.0002;
+  a.angVel += torque;
+  b.angVel -= torque;
+}
+
+/* ============================================================
+ * 10. 合成检测
+ * ============================================================ */
+function checkMerges() {
+  const toRemove = new Set();
+  const toAdd = [];
+
+  for (let i = 0; i < game.fruits.length; i++) {
+    const a = game.fruits[i];
+    if (toRemove.has(a.id)) continue;
+    for (let j = i + 1; j < game.fruits.length; j++) {
+      const b = game.fruits[j];
+      if (toRemove.has(b.id)) continue;
+      if (a.level !== b.level || a.level >= FRUITS.length) continue;
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const minDist = a.radius + b.radius;
+      // 同等级水果"一接触即合成"（原版规则），留 10% 容差：即使被其它等级水果轻微挤开，
+      // 只要同等级两端足够贴近也判定合成，缓解"看起来相同却不消除"的问题
+      // 物理引擎已对同等级水果保留重叠，此时 dist 会维持在 minDist 附近
+      if (dist < minDist * 1.10) {
+        toRemove.add(a.id);
+        toRemove.add(b.id);
+        game.score += a.level * SCORE_UNIT;
+        // 新水果在中点，半径更大 → 给一点初始速度让它弹出一点
+        const nf = new Fruit(a.level + 1, (a.x + b.x) / 2, (a.y + b.y) / 2);
+        nf.vy = -2;
+        toAdd.push(nf);
+        // 合成最终大西瓜（Lv11）成功：弹窗提示
+        if (a.level + 1 === FRUITS.length) {
+          showSuccessModal(getFruitName(FRUITS.length));
+        }
+        break;  // a 已配对
+      }
+    }
+  }
+
+  if (toRemove.size > 0) {
+    game.fruits = game.fruits.filter(f => !toRemove.has(f.id));
+    game.fruits.push(...toAdd);
+  }
+}
+
+/* ============================================================
+ * 11. 游戏结束判定
+ * ============================================================ */
+function checkGameOver() {
+  if (game.isGameOver) return;
+  const now = performance.now();
+  let overCount = 0;
+  for (const f of game.fruits) {
+    // 是否真正落定：用“本帧净位移”判定，而不是速度变量。
+    // 原因：被夹在堆中段的水果，位置被碰撞修正固定不动，但 vy 每帧仍被重力累加
+    // （只有触地 f.y+r>FLOOR_Y 才清空），导致速度恒定很大、|vy|<2 永远不成立，
+    // 旧的“速度静止”判定会让这些已越线的水果永远被判为未落定，从而倒计时警告永不触发。
+    // 净位移：位置几乎没动 → 视为落定；spawnTimer<=0 排除刚投下、还在下落路过警戒线的水果。
+    const dvx = Math.abs(f.x - f.px);
+    const dvy = Math.abs(f.y - f.py);
+    const settled = f.spawnTimer <= 0 && dvx < 1.6 && dvy < 1.6;
+    if (settled) f.settledFrames++;
+    else f.settledFrames = Math.max(0, f.settledFrames - 2);
+
+    if (f.settledFrames > SETTLE_FRAMES && f.y - f.radius < GAME_OVER_LINE) {
+      f.overLineFrames++;            // 递增，用于渲染闪烁高亮
+      overCount++;
+    } else {
+      f.overLineFrames = Math.max(0, f.overLineFrames - 2);
+    }
+  }
+  if (overCount > 0) {
+    // 进入 / 保持危险状态：给 10 秒宽限，期间用户可合成消除超标部分
+    if (!game.dangerActive) {
+      game.dangerActive = true;
+      game.dangerDeadline = now + DANGER_GRACE_MS;
+    }
+    if (now >= game.dangerDeadline) {
+      gameOver();                    // 宽限期内未消除 → 判负
+    }
+  } else {
+    game.dangerActive = false;       // 超标部分已消除 → 解除危险，继续游戏
+  }
+}
+
+function gameOver() {
+  game.isGameOver = true;
+  if (game.score > game.highScore) {
+    game.highScore = game.score;
+    localStorage.setItem('daxigua_high', game.highScore);
+  }
+  document.getElementById('finalScoreEl').textContent = game.score;
+  document.getElementById('gameOverlay').classList.remove('hidden');
+}
+
+/* ============================================================
+ * 12. 渲染
+ * ============================================================ */
+function render() {
+  // 背景
+  const bg = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  bg.addColorStop(0, '#2c3e50');
+  bg.addColorStop(1, '#1a2530');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // 容器墙
+  drawWalls();
+
+  // 底部木箱垫高（缩短有效游戏高度，适配手机）
+  drawWoodFloor();
+
+  // 危险红线
+  drawGameOverLine();
+
+  // 超过警戒线时的危险警告横幅 + 倒计时
+  if (game.dangerActive) drawDangerBanner();
+
+  // 水果
+  for (const f of game.fruits) drawFruit(f);
+
+  // 瞄准线 + 当前预览（仅可投时）
+  if (!game.isGameOver && game.canDrop) drawAimGuide();
+
+  // 下一个预览（放到最后，浮在最上层，避免被瞄准预览/大水果遮挡）
+  drawNextPreview();
+}
+
+function drawWalls() {
+  // 半透明玻璃效果
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.fillRect(WALL_L - 5, 0, 5, CANVAS_H);
+  ctx.fillRect(WALL_R, 0, 5, CANVAS_H);
+  ctx.fillRect(0, FLOOR_Y, CANVAS_W, 5);
+
+  // 玻璃高光
+  const hg = ctx.createLinearGradient(0, 0, 0, CANVAS_H);
+  hg.addColorStop(0, 'rgba(255,255,255,0.15)');
+  hg.addColorStop(0.5, 'rgba(255,255,255,0.04)');
+  hg.addColorStop(1, 'rgba(255,255,255,0.10)');
+  ctx.fillStyle = hg;
+  ctx.fillRect(WALL_L - 5, 0, 5, CANVAS_H);
+  ctx.fillRect(WALL_R, 0, 5, CANVAS_H);
+
+  // 顶部开口的玻璃光泽
+  ctx.fillStyle = 'rgba(255,255,255,0.10)';
+  ctx.fillRect(WALL_L, 0, WALL_R - WALL_L, 2);
+}
+
+/* 底部"暗色玻璃"垫高：与游戏区深蓝玻璃容器 + 紫色霓虹按钮统一风格。
+ * 不再使用棕色木头，而是冷色玻璃底座 + 顶部霓虹边 + 内部细分隔线。 */
+function drawWoodFloor() {
+  const top = FLOOR_Y;
+  const bottom = CANVAS_H;
+  const x0 = WALL_L - 6, w = (WALL_R - WALL_L) + 12;
+
+  // 主体：冷色深蓝玻璃（比画布底 #1a2530 略亮，自带"容器内底部"感）
+  const g = ctx.createLinearGradient(0, top, 0, bottom);
+  g.addColorStop(0,   '#2a3a52');
+  g.addColorStop(0.4, '#1f2c3d');
+  g.addColorStop(1,   '#121922');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, top, w, bottom - top);
+
+  // 顶部一道细高光线（玻璃板边）
+  ctx.fillStyle = 'rgba(255,255,255,0.22)';
+  ctx.fillRect(x0, top, w, 1);
+
+  // 顶部霓虹色边（与按钮紫渐变呼应：#667eea → #764ba2）
+  const ng = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+  ng.addColorStop(0,    'rgba(102, 126, 234, 0.85)');
+  ng.addColorStop(0.5,  'rgba(118,  75, 162, 0.95)');
+  ng.addColorStop(1,    'rgba(102, 126, 234, 0.85)');
+  ctx.fillStyle = ng;
+  ctx.fillRect(x0, top + 1, w, 3);
+
+  // 内部分隔线（细线，半透明白，模拟玻璃板拼接；不抢眼）
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+  ctx.lineWidth = 1;
+  const panels = 4;
+  const pw = w / panels;
+  for (let i = 1; i < panels; i++) {
+    const x = x0 + i * pw;
+    ctx.beginPath();
+    ctx.moveTo(x, top + 6);
+    ctx.lineTo(x, bottom);
+    ctx.stroke();
+  }
+
+  // 底部柔和阴影（让底座有重量感、不贴边）
+  const sh = ctx.createLinearGradient(0, bottom - 14, 0, bottom);
+  sh.addColorStop(0, 'rgba(0,0,0,0)');
+  sh.addColorStop(1, 'rgba(0,0,0,0.45)');
+  ctx.fillStyle = sh;
+  ctx.fillRect(x0, bottom - 14, w, 14);
+}
+
+function drawGameOverLine() {
+  const danger = game.dangerActive;
+  const blink = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+  const alpha = danger ? (0.4 + 0.6 * blink) : 0.6;
+  ctx.save();
+  ctx.strokeStyle = `rgba(255, 80, 80, ${alpha})`;
+  ctx.lineWidth = danger ? 3.5 : 2;
+  ctx.setLineDash([8, 6]);
+  ctx.beginPath();
+  ctx.moveTo(WALL_L, GAME_OVER_LINE);
+  ctx.lineTo(WALL_R, GAME_OVER_LINE);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.fillStyle = `rgba(255, 80, 80, ${danger ? (0.55 + 0.45 * blink) : 0.85})`;
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(danger ? '⚠ 危险！' : '⚠ 警戒线', WALL_L + 6, GAME_OVER_LINE - 3);
+  ctx.restore();
+}
+
+// 危险状态横幅：超出警戒线时的闪烁提示 + 剩余宽限秒数
+function drawDangerBanner() {
+  const leftMs = Math.max(0, game.dangerDeadline - performance.now());
+  const secs = Math.max(0, Math.ceil(leftMs / 1000)); // 整数秒倒计时
+  const blink = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+
+  ctx.save();
+  // 警戒线上方区域淡淡的红色警示底
+  ctx.fillStyle = `rgba(255, 60, 60, ${0.06 + 0.08 * blink})`;
+  ctx.fillRect(WALL_L, 0, WALL_R - WALL_L, GAME_OVER_LINE);
+
+  // 警示文字（居中，避开右上角 NEXT）
+  ctx.fillStyle = `rgba(255, 92, 92, ${0.6 + 0.4 * blink})`;
+  ctx.font = 'bold 14px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`⚠ 超出警戒线！${secs}s 内合成消除，否则游戏结束`, CANVAS_W / 2, 20);
+  ctx.restore();
+}
+
+function drawFruit(f) {
+  const r = f.radius;
+
+  // 入场缩放动画
+  let sScale = 1;
+  if (f.spawnTimer > 0) {
+    const p = 1 - f.spawnTimer / 12;
+    sScale = 0.4 + 0.6 * p;
+  }
+
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.rotate(f.angle);
+  ctx.scale(sScale, sScale);
+
+  // clip 到圆形（默认形状）
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.clip();
+
+  // 绘制图片 或 程序绘制的默认水果外观
+  if (!drawFruitImage(ctx, f.level, r)) {
+    drawDefaultFruit(ctx, f.level, r);
+  }
+
+  ctx.restore();
+
+  // 描边（在旋转外层）
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.scale(sScale, sScale);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.lineWidth = Math.max(1.5, r * 0.04);
+  ctx.stroke();
+
+  // 超过警戒线的水果：红色闪烁警告框
+  if (game.dangerActive && f.overLineFrames > 0) {
+    const blink = 0.5 + 0.5 * Math.sin(performance.now() * 0.012);
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 70, 70, ${0.5 + 0.5 * blink})`;
+    ctx.lineWidth = Math.max(2.5, r * 0.06);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 文字标签已移除：默认外观由程序绘制自带辨识度，
+  // 自定义图片也自带内容，无需再叠"葡萄"/"樱桃"等文字
+}
+
+/* ============================================================
+ * 12.5 默认水果切面图 (程序绘制，无需外部图片)
+ *   - 每个函数都已 translate 到中心，按半径 r 缩放
+ *   - ctx 已 clip 到形状内部，绘制只在该区域内可见
+ *   - 风格：横切面图，可清晰看到果肉、籽、纹理
+ * ============================================================ */
+function drawDefaultFruit(ctx, level, r) {
+  switch (level) {
+    case 1: drawFruitGrape(ctx, r); break;
+    case 2: drawFruitCherry(ctx, r); break;
+    case 3: drawFruitOrange(ctx, r); break;
+    case 4: drawFruitLemon(ctx, r); break;
+    case 5: drawFruitKiwi(ctx, r); break;
+    case 6: drawFruitTomato(ctx, r); break;
+    case 7: drawFruitPeach(ctx, r); break;
+    case 8: drawFruitPineapple(ctx, r); break;
+    case 9: drawFruitCoconut(ctx, r); break;
+    case 10: drawFruitHalfWatermelon(ctx, r); break;
+    case 11: drawFruitWatermelon(ctx, r); break;
+  }
+}
+
+// 通用工具
+function sphereGradient(ctx, x, y, r, light, mid, dark) {
+  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.08, x, y, r);
+  g.addColorStop(0, light);
+  g.addColorStop(0.55, mid);
+  g.addColorStop(1, dark);
+  return g;
+}
+
+// 双层径向渐变（中心更亮）
+function dualGradient(ctx, x, y, r, innerLight, innerColor, midColor, edgeColor) {
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+  g.addColorStop(0, innerLight);
+  g.addColorStop(0.2, innerColor);
+  g.addColorStop(0.7, midColor);
+  g.addColorStop(1, edgeColor);
+  return g;
+}
+
+/* ----- Lv1 葡萄 切面 ----- */
+function drawFruitGrape(ctx, r) {
+  // 外皮（深紫）
+  ctx.fillStyle = '#4A235A';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉（淡紫渐变）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.88,
+    '#FAF0FF', '#E8DAEF', '#BB8FCE', '#7D3C98');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.88, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 纤维纹理（放射细线）
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * r * 0.85, Math.sin(a) * r * 0.85);
+    ctx.stroke();
+  }
+
+  // 3 颗葡萄籽
+  ctx.fillStyle = '#1B0E22';
+  const seeds = [[-0.25, 0.05], [0.28, 0.18], [0.0, -0.32]];
+  for (const [x, y] of seeds) {
+    ctx.beginPath();
+    ctx.ellipse(x * r, y * r, r * 0.12, r * 0.07, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // 籽高光
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(x * r - r * 0.03, y * r - r * 0.02, r * 0.04, r * 0.02, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1B0E22';
+  }
+
+  // 顶部小茎
+  ctx.fillStyle = '#4D3A1F';
+  ctx.fillRect(-r * 0.03, -r * 1.0, r * 0.06, r * 0.12);
+  // 茎连接点
+  ctx.fillStyle = '#2D4A1A';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.95, r * 0.05, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv2 樱桃 切面 ----- */
+function drawFruitCherry(ctx, r) {
+  // 外皮（鲜红）
+  const skinGrad = ctx.createRadialGradient(0, 0, r * 0.6, 0, 0, r);
+  skinGrad.addColorStop(0, '#C0392B');
+  skinGrad.addColorStop(1, '#7B0F2C');
+  ctx.fillStyle = skinGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉（亮红渐变）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.9,
+    '#FFE3E3', '#FFB7B2', '#E74C3C', '#922B21');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果汁纹理（同心放射）
+  ctx.strokeStyle = 'rgba(255,220,220,0.15)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i <= 4; i++) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.2 * i, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 中央圆核（樱桃核）
+  ctx.fillStyle = '#5D2E1F';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 核表面纹理
+  ctx.fillStyle = '#8B4513';
+  ctx.beginPath();
+  ctx.arc(-r * 0.08, -r * 0.08, r * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 核上的褶皱线
+  ctx.strokeStyle = 'rgba(40,15,10,0.6)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.32, a - 0.3, a + 0.3);
+    ctx.stroke();
+  }
+
+  // 顶部小茎
+  ctx.strokeStyle = '#3D2B1F';
+  ctx.lineWidth = Math.max(2, r * 0.1);
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.92);
+  ctx.quadraticCurveTo(r * 0.15, -r * 1.05, r * 0.05, -r * 1.15);
+  ctx.stroke();
+}
+
+/* ----- Lv3 橘子 切面 ----- */
+function drawFruitOrange(ctx, r) {
+  // 外皮（深橙）
+  ctx.fillStyle = '#D35400';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 白色海绵层（pith）
+  ctx.fillStyle = '#FFF7E6';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.92, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉背景（浅橙）
+  ctx.fillStyle = '#FDB97D';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 10 个果瓣（核心特征）
+  const segments = 10;
+  for (let i = 0; i < segments; i++) {
+    const a1 = (i / segments) * Math.PI * 2;
+    const a2 = ((i + 1) / segments) * Math.PI * 2;
+    const halfA = (a1 + a2) / 2;
+
+    // 楔形果肉
+    const segGrad = ctx.createRadialGradient(
+      Math.cos(halfA) * r * 0.4, Math.sin(halfA) * r * 0.4, 0,
+      0, 0, r * 0.8
+    );
+    segGrad.addColorStop(0, '#FFD27D');
+    segGrad.addColorStop(0.6, '#FF9F43');
+    segGrad.addColorStop(1, '#E67E22');
+
+    ctx.fillStyle = segGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r * 0.78, a1, a2);
+    ctx.closePath();
+    ctx.fill();
+
+    // 果肉膜（深色描边分隔果瓣）
+    ctx.strokeStyle = 'rgba(211, 84, 0, 0.45)';
+    ctx.lineWidth = Math.max(1, r * 0.02);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a1) * r * 0.8, Math.sin(a1) * r * 0.8);
+    ctx.stroke();
+
+    // 果肉内的果粒（小点）
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+    const dots = 5;
+    for (let j = 1; j <= dots; j++) {
+      const da = (j - 0.5) / dots - 0.5;
+      const tA = halfA + da * (a2 - a1);
+      const dist = r * 0.15 + j * r * 0.1;
+      ctx.beginPath();
+      ctx.arc(Math.cos(tA) * dist, Math.sin(tA) * dist, r * 0.025, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 1-2 颗籽
+    if (i % 2 === 0) {
+      ctx.fillStyle = '#5D2E0F';
+      ctx.beginPath();
+      ctx.ellipse(
+        Math.cos(halfA) * r * 0.55, Math.sin(halfA) * r * 0.55,
+        r * 0.05, r * 0.07, halfA, 0, Math.PI * 2
+      );
+      ctx.fill();
+    }
+  }
+
+  // 外皮高光
+  ctx.strokeStyle = 'rgba(255, 200, 130, 0.5)';
+  ctx.lineWidth = Math.max(2, r * 0.05);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.97, -Math.PI * 0.6, -Math.PI * 0.1);
+  ctx.stroke();
+
+  // 顶部小绿叶
+  ctx.fillStyle = '#27AE60';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.98, r * 0.22, r * 0.1, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 叶脉
+  ctx.strokeStyle = 'rgba(20, 80, 30, 0.6)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.18, -r * 0.98);
+  ctx.lineTo(r * 0.18, -r * 0.98);
+  ctx.stroke();
+}
+
+/* ----- Lv4 柠檬 切面 ----- */
+function drawFruitLemon(ctx, r) {
+  // 外皮（深黄）
+  ctx.fillStyle = '#9A7D0A';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 白色海绵层
+  ctx.fillStyle = '#FFFDE7';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.93, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉背景
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.86,
+    '#FFFEF0', '#FFF59D', '#F4D03F', '#B7950B');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.86, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 8 个果瓣
+  const segments = 8;
+  for (let i = 0; i < segments; i++) {
+    const a1 = (i / segments) * Math.PI * 2;
+    const a2 = ((i + 1) / segments) * Math.PI * 2;
+    const halfA = (a1 + a2) / 2;
+
+    // 楔形果肉（淡黄）
+    const segGrad = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 0.7);
+    segGrad.addColorStop(0, '#FFFEF5');
+    segGrad.addColorStop(1, '#F9E79F');
+
+    ctx.fillStyle = segGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r * 0.78, a1, a2);
+    ctx.closePath();
+    ctx.fill();
+
+    // 果瓣膜
+    ctx.strokeStyle = 'rgba(184, 134, 11, 0.45)';
+    ctx.lineWidth = Math.max(1, r * 0.02);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a1) * r * 0.8, Math.sin(a1) * r * 0.8);
+    ctx.stroke();
+
+    // 果肉小粒
+    ctx.fillStyle = 'rgba(255, 255, 240, 0.7)';
+    for (let j = 1; j <= 4; j++) {
+      const tA = halfA;
+      const dist = r * 0.15 + j * r * 0.12;
+      ctx.beginPath();
+      ctx.arc(Math.cos(tA) * dist, Math.sin(tA) * dist, r * 0.025, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 籽
+    if (i % 2 === 1) {
+      ctx.fillStyle = '#6E4406';
+      ctx.beginPath();
+      ctx.ellipse(
+        Math.cos(halfA) * r * 0.5, Math.sin(halfA) * r * 0.5,
+        r * 0.045, r * 0.07, halfA + Math.PI / 2, 0, Math.PI * 2
+      );
+      ctx.fill();
+    }
+  }
+
+  // 外皮高光
+  ctx.strokeStyle = 'rgba(255, 245, 200, 0.6)';
+  ctx.lineWidth = Math.max(2, r * 0.05);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.97, -Math.PI * 0.55, -Math.PI * 0.05);
+  ctx.stroke();
+
+  // 顶部小尖蒂
+  ctx.fillStyle = '#4D3A1F';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 0.97, r * 0.08, r * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv5 猕猴桃 切面（最经典的切面）----- */
+function drawFruitKiwi(ctx, r) {
+  // 外皮（棕色绒毛）
+  ctx.fillStyle = '#5D4037';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 外皮细绒毛
+  ctx.fillStyle = '#795548';
+  for (let i = 0; i < 60; i++) {
+    const a = (i / 60) * Math.PI * 2;
+    const dist = r * (0.94 + Math.random() * 0.05);
+    ctx.beginPath();
+    ctx.arc(Math.cos(a) * dist, Math.sin(a) * dist, r * 0.015, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 浅棕色内层
+  ctx.fillStyle = '#A1887F';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.88, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 绿色果肉
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.82,
+    '#E8F5E9', '#AED581', '#7CB342', '#558B2F');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 放射纤维（从中心到外）
+  ctx.strokeStyle = 'rgba(220, 240, 220, 0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * r * 0.8, Math.sin(a) * r * 0.8);
+    ctx.stroke();
+  }
+
+  // 白色中心
+  ctx.fillStyle = '#FFFDE7';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 黑色籽（放射排列，标志性特征）
+  ctx.fillStyle = '#1B1B1B';
+  for (let i = 0; i < 22; i++) {
+    const a = (i / 22) * Math.PI * 2 + 0.14;
+    const dist = r * 0.36;
+    ctx.save();
+    ctx.translate(Math.cos(a) * dist, Math.sin(a) * dist);
+    ctx.rotate(a + Math.PI / 2);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.055, r * 0.025, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 高光
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.35, -r * 0.4, r * 0.22, r * 0.13, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv6 番茄 切面 ----- */
+function drawFruitTomato(ctx, r) {
+  // 外皮（鲜红渐变）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r,
+    '#FF7066', '#E74C3C', '#C0392B', '#922B21');
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉（更亮红）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.92,
+    '#FFCDD2', '#FF8A80', '#EF5350', '#C62828');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.92, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4 个种子腔（楔形分隔）
+  const segs = 4;
+  for (let i = 0; i < segs; i++) {
+    const a1 = (i / segs) * Math.PI * 2;
+    const a2 = ((i + 1) / segs) * Math.PI * 2;
+    // 果肉膜（比果肉略深）
+    ctx.strokeStyle = 'rgba(183, 28, 28, 0.55)';
+    ctx.lineWidth = Math.max(2, r * 0.04);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a1) * r * 0.88, Math.sin(a1) * r * 0.88);
+    ctx.stroke();
+
+    // 种子腔（略暗区域）
+    ctx.fillStyle = 'rgba(255, 235, 220, 0.25)';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, r * 0.75, a1 + 0.05, a2 - 0.05);
+    ctx.closePath();
+    ctx.fill();
+
+    // 果肉粒
+    ctx.fillStyle = 'rgba(255, 250, 230, 0.6)';
+    for (let j = 1; j <= 4; j++) {
+      const halfA = (a1 + a2) / 2;
+      const dist = r * 0.18 + j * r * 0.12;
+      ctx.beginPath();
+      ctx.arc(Math.cos(halfA) * dist, Math.sin(halfA) * dist, r * 0.025, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 种子（小水滴形）
+    const halfA = (a1 + a2) / 2;
+    for (let k = 0; k < 3; k++) {
+      const seedDist = r * 0.35 + k * r * 0.12;
+      const sx = Math.cos(halfA) * seedDist + (Math.random() - 0.5) * r * 0.04;
+      const sy = Math.sin(halfA) * seedDist + (Math.random() - 0.5) * r * 0.04;
+      ctx.fillStyle = '#FFF8E1';
+      ctx.beginPath();
+      ctx.ellipse(sx, sy, r * 0.04, r * 0.025, halfA, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#A1887F';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+    }
+  }
+
+  // 顶部绿蒂（五角星形叶）
+  ctx.fillStyle = '#2E7D32';
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 1.05);
+  for (let i = 0; i <= 5; i++) {
+    const a = -Math.PI / 2 + (i / 5) * Math.PI * 2 + Math.PI / 5;
+    const isOuter = i % 2 === 0;
+    const radius = isOuter ? r * 0.22 : r * 0.10;
+    const x = Math.cos(a) * radius;
+    const y = -r * 0.85 + Math.sin(a) * radius * 0.6;
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.fill();
+
+  // 中心小核
+  ctx.fillStyle = '#1B5E20';
+  ctx.beginPath();
+  ctx.arc(0, -r * 0.85, r * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv7 桃子 切面 ----- */
+function drawFruitPeach(ctx, r) {
+  // 外皮（毛绒，桃色渐变）
+  const skinGrad = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r);
+  skinGrad.addColorStop(0, '#FFCCBC');
+  skinGrad.addColorStop(0.85, '#FFAB91');
+  skinGrad.addColorStop(1, '#BF6A50');
+  ctx.fillStyle = skinGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉（奶黄带粉）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.93,
+    '#FFF8E7', '#FFE4D1', '#FFD0B5', '#D4A484');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.93, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉纹理（放射纤维）
+  ctx.strokeStyle = 'rgba(255, 220, 200, 0.4)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * r * 0.9, Math.sin(a) * r * 0.9);
+    ctx.stroke();
+  }
+
+  // 红润晕（沿缝合线）
+  const blushGrad = ctx.createRadialGradient(r * 0.35, 0, r * 0.1, r * 0.35, 0, r * 0.7);
+  blushGrad.addColorStop(0, 'rgba(230, 100, 90, 0.55)');
+  blushGrad.addColorStop(1, 'rgba(230, 100, 90, 0)');
+  ctx.fillStyle = blushGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.9, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 中央桃核（深褐色，椭圆形，有褶皱）
+  ctx.save();
+  ctx.translate(0, 0);
+  ctx.fillStyle = '#5D2E0F';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.32, r * 0.38, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // 核上的纹理（凸起的纹理）
+  ctx.strokeStyle = '#3E1B05';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.32, a - 0.25, a + 0.25);
+    ctx.stroke();
+  }
+  // 核的中心浅色
+  ctx.fillStyle = '#7B4A26';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 桃尖的小尖头（果柄突起）
+  ctx.fillStyle = '#4D3A1F';
+  ctx.beginPath();
+  ctx.ellipse(0, -r * 1.0, r * 0.07, r * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv8 菠萝 切面 ----- */
+function drawFruitPineapple(ctx, r) {
+  // 外皮（深黄渐变）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r,
+    '#FFD54F', '#F9A825', '#E68A00', '#8B6914');
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 内层（浅黄，菠萝肉）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r * 0.85,
+    '#FFF59D', '#FFE082', '#FBC02D', '#C49000');
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 螺旋排列的小"果眼"（菠萝的核心纹路特征）
+  ctx.fillStyle = '#8B6914';
+  // 6 条螺旋臂
+  for (let arm = 0; arm < 6; arm++) {
+    const armRot = (arm / 6) * Math.PI * 2;
+    for (let step = 0; step < 4; step++) {
+      const dist = r * 0.18 + step * r * 0.16;
+      const angle = armRot + step * 0.6;
+      const x = Math.cos(angle) * dist;
+      const y = Math.sin(angle) * dist;
+      // 每个果眼：小菱形
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle + Math.PI / 4);
+      ctx.beginPath();
+      ctx.rect(-r * 0.05, -r * 0.05, r * 0.1, r * 0.1);
+      ctx.fill();
+      // 果眼中心亮点
+      ctx.fillStyle = '#FFF59D';
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.02, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#8B6914';
+      ctx.restore();
+    }
+  }
+
+  // 中央菠萝芯（深色圆形，比果眼粗）
+  ctx.fillStyle = '#8B6914';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.12, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 顶部叶冠（剪影）
+  ctx.fillStyle = '#2E7D32';
+  ctx.beginPath();
+  // 中心叶
+  ctx.moveTo(0, -r * 0.82);
+  ctx.lineTo(-r * 0.1, -r * 1.18);
+  ctx.lineTo(r * 0.1, -r * 1.18);
+  ctx.closePath();
+  ctx.fill();
+  // 左侧叶
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.82);
+  ctx.quadraticCurveTo(-r * 0.45, -r * 1.0, -r * 0.55, -r * 1.05);
+  ctx.lineTo(-r * 0.5, -r * 0.85);
+  ctx.closePath();
+  ctx.fill();
+  // 右侧叶
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 0.82);
+  ctx.quadraticCurveTo(r * 0.45, -r * 1.0, r * 0.55, -r * 1.05);
+  ctx.lineTo(r * 0.5, -r * 0.85);
+  ctx.closePath();
+  ctx.fill();
+
+  // 高光
+  ctx.fillStyle = 'rgba(255, 248, 225, 0.4)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.3, -r * 0.4, r * 0.18, r * 0.1, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv9 椰子 切面 ----- */
+function drawFruitCoconut(ctx, r) {
+  // 外壳（深棕色）
+  ctx.fillStyle = dualGradient(ctx, 0, 0, r,
+    '#A0744A', '#6E4C2A', '#3E2723', '#1F1410');
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 外壳纹理（细密放射纤维）
+  ctx.strokeStyle = 'rgba(60, 30, 15, 0.4)';
+  ctx.lineWidth = 0.8;
+  for (let i = 0; i < 40; i++) {
+    const a = (i / 40) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5);
+    ctx.lineTo(Math.cos(a) * r * 0.98, Math.sin(a) * r * 0.98);
+    ctx.stroke();
+  }
+
+  // 浅棕色内层
+  ctx.fillStyle = '#8B6914';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.85, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 白色椰肉（核果肉，明显的环）
+  const meatGrad = ctx.createRadialGradient(0, -r * 0.1, r * 0.2, 0, 0, r * 0.78);
+  meatGrad.addColorStop(0, '#FFFEF7');
+  meatGrad.addColorStop(0.5, '#FFF8E7');
+  meatGrad.addColorStop(1, '#E6D5B0');
+  ctx.fillStyle = meatGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 椰肉边缘整齐的描边
+  ctx.strokeStyle = '#C9B488';
+  ctx.lineWidth = Math.max(1, r * 0.015);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.78, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 椰肉表面纹理（细密圆环，暗示被剖面切的层）
+  ctx.strokeStyle = 'rgba(170, 140, 90, 0.3)';
+  ctx.lineWidth = 0.8;
+  for (let i = 1; i <= 5; i++) {
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.12 * i, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // 中央椰子水腔（略暗的圆形）
+  const cavityGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.3);
+  cavityGrad.addColorStop(0, 'rgba(220, 200, 170, 0.8)');
+  cavityGrad.addColorStop(1, 'rgba(220, 200, 170, 0.4)');
+  ctx.fillStyle = cavityGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 三个椰眼（棕褐色圆点，识别度最高）
+  const eyePositions = [[-0.22, -0.18], [0.22, -0.18], [0, 0.3]];
+  ctx.fillStyle = '#3E2723';
+  for (const [ex, ey] of eyePositions) {
+    // 外圈
+    ctx.beginPath();
+    ctx.arc(ex * r, ey * r, r * 0.075, 0, Math.PI * 2);
+    ctx.fill();
+    // 圈内的浅色环
+    ctx.fillStyle = '#8B6914';
+    ctx.beginPath();
+    ctx.arc(ex * r, ey * r, r * 0.055, 0, Math.PI * 2);
+    ctx.fill();
+    // 中心黑点
+    ctx.fillStyle = '#1F1410';
+    ctx.beginPath();
+    ctx.arc(ex * r, ey * r, r * 0.025, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 高光
+  ctx.fillStyle = 'rgba(255, 248, 225, 0.6)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.35, -r * 0.4, r * 0.22, r * 0.13, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv10 半西瓜 切面 ----- */
+function drawFruitHalfWatermelon(ctx, r) {
+  // 深绿色外皮（最外层）
+  ctx.fillStyle = '#1E8449';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 浅绿色外皮
+  ctx.fillStyle = '#2ECC71';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.92, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 白色瓜瓤（pith 层）
+  ctx.fillStyle = '#F8F9FA';
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.8, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 红色瓜肉（带渐变）
+  const fleshGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.75);
+  fleshGrad.addColorStop(0, '#FF8A85');
+  fleshGrad.addColorStop(0.7, '#FF5252');
+  fleshGrad.addColorStop(1, '#C0392B');
+  ctx.fillStyle = fleshGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 果肉纤维（细放射）
+  ctx.strokeStyle = 'rgba(255, 200, 200, 0.18)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 30; i++) {
+    const a = (i / 30) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(Math.cos(a) * r * 0.7, Math.sin(a) * r * 0.7);
+    ctx.stroke();
+  }
+
+  // 黑色瓜籽（标志特征）
+  ctx.fillStyle = '#1B1B1B';
+  const seedCount = 14;
+  for (let i = 0; i < seedCount; i++) {
+    const a = (i / seedCount) * Math.PI * 2 + 0.2;
+    const dist = r * (0.3 + (i % 3) * 0.13);
+    ctx.save();
+    ctx.translate(Math.cos(a) * dist, Math.sin(a) * dist);
+    ctx.rotate(a + Math.PI / 2);
+    // 泪滴形瓜籽
+    ctx.beginPath();
+    ctx.moveTo(0, r * 0.08);
+    ctx.quadraticCurveTo(r * 0.04, 0, 0, -r * 0.08);
+    ctx.quadraticCurveTo(-r * 0.04, 0, 0, r * 0.08);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 高光
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.35, -r * 0.4, r * 0.28, r * 0.16, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+/* ----- Lv11 大西瓜 整颗外观（参考图：亮绿瓜皮 + 汇聚点发散的 S 形波浪条纹）----- */
+function drawFruitWatermelon(ctx, r) {
+  // 亮绿色球体基底（左上高光 → 中部亮绿 → 边缘深一点的绿）
+  const baseGrad = ctx.createRadialGradient(-r * 0.22, -r * 0.18, r * 0.1, 0, 0, r * 1.05);
+  baseGrad.addColorStop(0, '#9BE86B');
+  baseGrad.addColorStop(0.45, '#6CCE43');
+  baseGrad.addColorStop(0.8, '#57BC39');
+  baseGrad.addColorStop(1, '#3EA32C');
+  ctx.fillStyle = baseGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 剪裁到圆形内，避免条纹溢出
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.clip();
+
+  // 条纹汇聚在左上偏心的焦点，向外发散成 S 形波浪带
+  const fox = -r * 0.30, foy = -r * 0.16;   // 汇聚点（非圆心）
+  ctx.fillStyle = '#2E8B29';                // 深绿条纹
+  const N = 8;
+  for (let i = 0; i < N; i++) {
+    ctx.save();
+    ctx.translate(fox, foy);
+    ctx.rotate((i / N) * Math.PI * 2 + 0.32);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    // 上波浪边（向外）
+    ctx.bezierCurveTo(r * 0.20, -r * 0.26, r * 0.40, -r * 0.04, r * 0.55, -r * 0.22);
+    ctx.bezierCurveTo(r * 0.72, -r * 0.40, r * 0.90, -r * 0.16, r * 1.14, -r * 0.08);
+    ctx.lineTo(r * 1.14, r * 0.05);
+    // 下波浪边（回勾到焦点）
+    ctx.bezierCurveTo(r * 0.88, r * 0.14, r * 0.70, r * 0.30, r * 0.50, r * 0.10);
+    ctx.bezierCurveTo(r * 0.36, -r * 0.06, r * 0.13, r * 0.15, 0, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 右下球体暗部（立体光影）
+  const shadowGrad = ctx.createRadialGradient(r * 0.3, r * 0.35, r * 0.2, r * 0.3, r * 0.35, r * 1.4);
+  shadowGrad.addColorStop(0, 'rgba(0, 60, 20, 0)');
+  shadowGrad.addColorStop(1, 'rgba(0, 50, 15, 0.35)');
+  ctx.fillStyle = shadowGrad;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 左上高光
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.42, -r * 0.42, r * 0.26, r * 0.16, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // 外圈细描边
+  ctx.strokeStyle = 'rgba(20, 80, 20, 0.5)';
+  ctx.lineWidth = Math.max(1, r * 0.015);
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+/**
+ * 当前形状策略：固定圆形。所有形状变体已移除。
+ * ctx 必须已 translate 到中心位置。
+ */
+function clipToCircle(r) {
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+}
+function strokeCircle(r, color, width) {
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.stroke();
+}
+
+function drawNextPreview() {
+  const r = FRUITS[game.nextLevel - 1].radius * currentSizeScale * 0.42;
+  const x = CANVAS_W - 38;
+  const y = 30;
+
+  ctx.save();
+  ctx.translate(x, y);
+
+  // 背景框
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, -r - 10, -r - 22, r * 2 + 20, r * 2 + 30, 8);
+  ctx.fill();
+  ctx.stroke();
+
+  // 标签
+  ctx.fillStyle = '#889';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('NEXT', 0, -r - 18);
+
+  // 预览水果（局部 clip，用独立的 save/restore 避免污染外层 translate）
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.clip();
+  if (!drawFruitImage(ctx, game.nextLevel, r)) {
+    drawDefaultFruit(ctx, game.nextLevel, r);
+  }
+  ctx.restore();
+
+  // 描边（在 translate 内，位置正确）
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawAimGuide() {
+  const r = FRUITS[game.currentLevel - 1].radius * currentSizeScale;
+
+  // 虚线瞄准线
+
+  // 顶部悬浮预览（带呼吸效果）
+  const t = performance.now() * 0.003;
+  const float = Math.sin(t) * 3;
+  const y = SPAWN_LINE + r + float;
+
+  ctx.save();
+  ctx.translate(game.mouseX, y);
+
+  // 阴影
+  ctx.fillStyle = 'rgba(0,0,0,0.25)';
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 半透明预览
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.clip();
+
+  if (!drawFruitImage(ctx, game.currentLevel, r)) {
+    drawDefaultFruit(ctx, game.currentLevel, r);
+  }
+  ctx.restore();
+
+  // 描边
+  ctx.beginPath();
+  ctx.arc(0, 0, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ============================================================
+ * 13. 圆角矩形（兼容老浏览器）
+ * ============================================================ */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+/* ============================================================
+ * 14. 输入处理
+ * ============================================================ */
+function getMouseXInCanvas(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  return (clientX - rect.left) * (CANVAS_W / rect.width);
+}
+
+// —— 掉落交互（防误触）——
+// 统一用 Pointer Events（覆盖鼠标 + 触屏 + 触控笔）。
+// 只有"轻点"（没滑动 + 按的时间短）才投放水果；手指/鼠标在画布上滑动只移动瞄准位置、
+// 松手不掉落，避免手机上"滑上滑下"的滚动/拖拽误触发掉落。
+const TAP_MAX_MOVE = 14;   // 允许的轻微抖动范围(px)
+const TAP_MAX_TIME = 450;  // 允许的最长按下时间(ms)
+let ptrDownX = 0, ptrDownY = 0, ptrDownT = 0;
+
+canvas.addEventListener('pointerdown', e => {
+  ptrDownX = e.clientX; ptrDownY = e.clientY; ptrDownT = performance.now();
+  game.mouseX = clamp(getMouseXInCanvas(e.clientX, e.clientY), WALL_L, WALL_R);
+});
+
+canvas.addEventListener('pointermove', e => {
+  game.mouseX = clamp(getMouseXInCanvas(e.clientX, e.clientY), WALL_L, WALL_R);
+});
+
+canvas.addEventListener('pointerup', e => {
+  game.mouseX = clamp(getMouseXInCanvas(e.clientX, e.clientY), WALL_L, WALL_R);
+  const moved = Math.hypot(e.clientX - ptrDownX, e.clientY - ptrDownY) > TAP_MAX_MOVE;
+  const dur = performance.now() - ptrDownT;
+  if (!moved && dur < TAP_MAX_TIME) tryDrop();  // 只有轻点才掉落
+});
+
+// 兜底：禁止触摸滑动引发页面滚动/缩放（画布正常交互已由 CSS touch-action:none 处理）
+canvas.addEventListener('touchmove', e => { if (e.cancelable) e.preventDefault(); }, { passive: false });
+
+function tryDrop() {
+  if (game.isGameOver || !game.canDrop) return;
+  const r = FRUITS[game.currentLevel - 1].radius * currentSizeScale;
+  // 顶部投放：水果顶部对齐到投放线 SPAWN_LINE（警戒线上方），由此处往下掉落
+  const y = SPAWN_LINE + r;
+  const f = new Fruit(game.currentLevel, game.mouseX, y);
+  game.fruits.push(f);
+  game.canDrop = false;
+  game.dropCd = DROP_COOLDOWN;
+
+  // 切换下一个
+  game.currentLevel = game.nextLevel;
+  game.nextLevel = randomNextLevel();
+}
+
+/* ============================================================
+ * 15. 下一级概率 (类似 Suika Game 原始规则)
+ * 难度选择：简单/普通/困难 三档
+ *   难度判定逻辑：低等级(Lv1~2)需要大量合成才能爬到 Lv11，所以掉得越多越费劲 → 越难。
+ *   - 简单：掉 Lv1~6（也包含高等级），可以更快推进到 Lv11
+ *   - 普通：掉 Lv1~4 葡萄/樱桃/橘子/柠檬（原始规则）
+ *   - 困难：只掉 Lv1~2 葡萄/樱桃，需要大量合成才能到 Lv11
+ *   - 数组第 i 项 = 第 (i+1) 级水果的掉落权重（相对概率）
+ *   - 想新增/删除可掉落等级，直接改下方对应难度的 weights 数组
+ * ============================================================ */
+const DIFFICULTY_PRESETS = {
+  easy:   { label: '简单', weights: [0.20, 0.18, 0.16, 0.14, 0.12, 0.20] },   // Lv1~6：包含高级，更快到 Lv11（总和=1，Lv6 含尾部兜底）
+  normal: { label: '普通', weights: [0.40, 0.28, 0.20, 0.12] },                // Lv1~4
+  hard:   { label: '困难', weights: [0.40, 0.40, 0.15, 0.05] }                 // Lv1 40% / Lv2 40% / Lv3 15% / Lv4 5%
+};
+// 各难度下的水果尺寸因子（在 FRUIT_FLOOR_SCALE 基础上再乘）：简单=基准，普通×1.10，困难×1.13
+const DIFFICULTY_SIZE = { easy: 1.0, normal: 1.10, hard: 1.13 };
+const DIFFICULTY_STORAGE_KEY = 'daxigua_difficulty';
+let currentDifficulty = 'normal';
+let currentSizeScale = 1;
+// 按当前难度同步水果尺寸因子（重开/切难度时保证一局内所有水果尺寸统一）
+function syncSizeScale() {
+  currentSizeScale = DIFFICULTY_SIZE[currentDifficulty] || 1;
+}
+
+function getCurrentDropWeights() {
+  return DIFFICULTY_PRESETS[currentDifficulty].weights;
+}
+
+function randomNextLevel() {
+  const weights = getCurrentDropWeights();
+  const r = Math.random();
+  let acc = 0;
+  for (let i = 0; i < weights.length; i++) {
+    acc += weights[i];
+    if (r < acc) return i + 1;
+  }
+  return weights.length; // 兜底（数学上不会到达）
+}
+
+function setDifficulty(diff) {
+  if (!DIFFICULTY_PRESETS[diff]) return;
+  if (currentDifficulty === diff) return;
+  // 切难度会修改水果大小，同局内出现两种尺寸会乱：若场上有水果，必须用户确认才能重开
+  if (game.fruits.length > 0) {
+    const target = DIFFICULTY_PRESETS[diff].label;
+    const ok = confirm('切换到「' + target + '」难度会重开当前游戏，确定继续吗？');
+    if (!ok) return;
+  }
+  currentDifficulty = diff;
+  try { localStorage.setItem(DIFFICULTY_STORAGE_KEY, diff); } catch (e) {}
+  syncSizeScale();
+  updateDifficultyUI();
+  // 不同难度的水果尺寸不同，为避免同屏出现两种尺寸的水果，切换难度时重新开局
+  if (game.fruits.length > 0) {
+    restart();
+    flashMsg('🎯 难度已切换为「' + DIFFICULTY_PRESETS[diff].label + '」，已重新开局');
+  } else {
+    flashMsg('🎯 难度已切换为「' + DIFFICULTY_PRESETS[diff].label + '」');
+  }
+}
+
+function loadDifficulty() {
+  try {
+    const d = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
+    if (d && DIFFICULTY_PRESETS[d]) currentDifficulty = d;
+  } catch (e) {}
+  syncSizeScale();
+}
+
+function updateDifficultyUI() {
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    const isActive = btn.dataset.difficulty === currentDifficulty;
+    btn.classList.toggle('active', isActive);
+  });
+}
+
+// 为每个难度按钮生成悬停说明，展示该档位的各级掉落概率
+// 水果名读取 getFruitName(level)，会跟随当前配置的自定义名；配置切换/改名后可重复调用刷新
+function buildDifficultyTooltips() {
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    const diff = btn.dataset.difficulty;
+    if (!DIFFICULTY_PRESETS[diff]) return;
+    btn.removeAttribute('title'); // 避免与原生长提示重复
+    const old = btn.querySelector('.diff-tip');
+    if (old) old.remove();        // 允许重复调用，替换旧说明
+    const p = DIFFICULTY_PRESETS[diff];
+    const sizeLabel = (DIFFICULTY_SIZE[diff] === 1)
+      ? '大小：基准'
+      : '大小：+' + Math.round((DIFFICULTY_SIZE[diff] - 1) * 100) + '%';
+    const total = p.weights.reduce((a, b) => a + b, 0);
+    const chips = p.weights.map((w, i) => {
+      const pct = Math.round((w / total) * 100);
+      const name = getFruitName(i + 1); // 优先自定义名，缺省回退默认
+      return `<span class="tip-chip">Lv${i + 1} ${name} ${pct}%</span>`;
+    }).join('');
+    btn.insertAdjacentHTML('beforeend',
+      `<span class="diff-tip"><span class="tip-title">「${p.label}」掉落概率</span><span class="tip-size">${sizeLabel}</span><span class="tip-chips">${chips}</span></span>`);
+  });
+}
+
+/* ============================================================
+ * 16. 游戏主循环
+ * ============================================================ */
+function update() {
+  // 冷却
+  if (!game.canDrop) {
+    if (--game.dropCd <= 0) game.canDrop = true;
+  }
+
+  if (!game.isGameOver) {
+    updatePhysics();
+    checkMerges();
+    checkGameOver();
+  }
+}
+
+/* 固定逻辑步长（60Hz）：无论设备刷新率（60/90/120Hz）或是否掉帧，
+ * 物理都以恒定速度推进 → 手机/电脑下落速度一致，低帧率手机不再显得慢。 */
+const LOGIC_STEP_MS = 1000 / 60;   // 每逻辑步 16.67ms
+const MAX_STEPS_PER_FRAME = 6;     // 后台切换回来时最多补 6 步，防螺旋卡顿
+let _lastTs = 0;
+let _acc = 0;
+
+function loop(ts) {
+  // 首帧可能拿不到合法时间戳（如 init 里同步调用 loop() 时 ts 为 undefined），
+  // 此时跳过本帧，用下一帧 rAF 回调的带时间戳参数接管，避免累加器算成 NaN 卡死。
+  if (typeof ts !== 'number' || Number.isNaN(ts) || !isFinite(ts)) {
+    requestAnimationFrame(loop);
+    return;
+  }
+  if (!_lastTs) _lastTs = ts;
+  let delta = Math.min(ts - _lastTs, 200);  // clamp，避免切标签页回来瞬间跑过多步
+  _lastTs = ts;
+  _acc += delta;
+  let steps = 0;
+  while (_acc >= LOGIC_STEP_MS && steps < MAX_STEPS_PER_FRAME) {
+    update();
+    if (game.isGameOver) break;
+    _acc -= LOGIC_STEP_MS;
+    steps++;
+  }
+  if (steps === MAX_STEPS_PER_FRAME) _acc = 0;  // 丢弃积压，不报复式补帧
+
+  render();
+
+  // 刷新分数 UI（固定在渲染帧，避免每逻辑步都操作 DOM）
+  const sEl = document.getElementById('scoreEl');
+  const hEl = document.getElementById('highScoreEl');
+  if (sEl) sEl.textContent = game.score;
+  if (hEl) hEl.textContent = game.highScore;
+
+  requestAnimationFrame(loop);
+}
+
+/* ============================================================
+ * 17. 重启
+ * ============================================================ */
+function restart() {
+  syncSizeScale();   // 按当前难度锁定本局水果尺寸（一局内统一）
+  game.fruits = [];
+  game.score = 0;
+  game.currentLevel = 1;
+  game.nextLevel = randomNextLevel();
+  game.isGameOver = false;
+  game.canDrop = true;
+  game.dropCd = 0;
+  game.mouseX = CANVAS_W / 2;
+  game.idCounter = 0;
+  game.dangerActive = false;
+  game.dangerDeadline = 0;
+  document.getElementById('gameOverlay').classList.add('hidden');
+}
+
+/* ============================================================
+ * 18. 配置面板构建
+ * ============================================================ */
+function buildConfigPanel() {
+  const list = document.getElementById('configList');
+  if (!list) return;
+  list.innerHTML = '';
+  const locked = isConfigLocked(configStore.current); // 默认配置时整面板只读
+
+  FRUITS.forEach((fruit, idx) => {
+    const cfg = getActiveCfg(fruit.level);
+    const item = document.createElement('div');
+    item.className = 'config-item';
+    item.innerHTML = `
+      <div class="config-item-header">
+        <div class="config-preview" data-level="${fruit.level}">
+          ${cfg.image ? `<img src="${escapeAttr(cfg.image)}" alt="">` : fruit.level}
+        </div>
+        <input type="text" class="name-input" value="${escapeAttr(getFruitName(fruit.level))}" data-level="${fruit.level}" maxlength="6" title="自定义该级水果名" ${locked ? 'readonly' : ''}>
+        <span class="config-badge">Lv${fruit.level}</span>
+      </div>
+      <div class="config-row">
+        <input type="text" class="img-url" placeholder="图片URL（http(s):// 或 Base64）"
+               value="${cfg.image && !cfg.image.startsWith('data:') ? escapeAttr(cfg.image) : ''}"
+               data-level="${fruit.level}" ${locked ? 'readonly' : ''}>
+        <label class="file-btn secondary-btn" ${locked ? 'style="opacity:.5;pointer-events:none;"' : ''}>
+          📷 上传
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" class="file-input" data-level="${fruit.level}">
+        </label>
+      </div>
+      <div class="config-row">
+        <button class="crop-btn secondary" data-level="${fruit.level}" ${cfg.image && !locked ? '' : 'disabled'}>✂️ 调整画面</button>
+      </div>
+    `;
+    list.appendChild(item);
+  });
+
+  bindConfigEvents();
+}
+
+function escapeAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+                  .replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function bindConfigEvents() {
+  // 自定义水果名
+  document.querySelectorAll('.name-input').forEach(input => {
+    input.addEventListener('input', e => {
+      const level = parseInt(e.target.dataset.level, 10);
+      setFruitName(level, e.target.value);
+    });
+  });
+
+  // URL 输入
+  document.querySelectorAll('.img-url').forEach(input => {
+    input.addEventListener('input', e => {
+      const level = parseInt(e.target.dataset.level, 10);
+      const url = e.target.value.trim();
+      setActiveImg(level, url);
+      preloadImage(level);
+      updatePreview(level);
+    });
+  });
+
+  // 文件上传（自动压缩到高清尺寸，然后打开「调整画面」）
+  document.querySelectorAll('.file-input').forEach(input => {
+    input.addEventListener('change', async e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const level = parseInt(e.target.dataset.level, 10);
+      try {
+        const { dataUrl } = await compressImageFile(file, 1024, 0.9);
+        setActiveImg(level, dataUrl);
+        preloadImage(level);
+        updatePreview(level);
+        const urlInput = document.querySelector(`.img-url[data-level="${level}"]`);
+        if (urlInput) urlInput.value = '';
+        openCropEditor(level);   // 打开调整窗口
+      } catch (err) {
+        alert(err.message || '图片处理失败');
+      } finally {
+        e.target.value = '';
+      }
+    });
+  });
+
+  // 「调整画面」按钮
+  document.querySelectorAll('.crop-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openCropEditor(parseInt(btn.dataset.level, 10));
+    });
+  });
+}
+
+function updatePreview(level) {
+  const preview = document.querySelector(`.config-preview[data-level="${level}"]`);
+  if (!preview) return;
+  const img = getActiveCfg(level).image;
+  if (img) {
+    preview.innerHTML = `<img src="${escapeAttr(img)}" alt="">`;
+  } else {
+    preview.innerHTML = FRUITS[level - 1].level;
+  }
+}
+
+/* ============================================================
+ * 17.5. 批量导入（从文件夹加载多张图 → 写入新配置 → 打开预览调整）
+ *   命名匹配优先级：
+ *     1) 数字前缀  1~11 / lv1~lv11
+ *     2) 中文水果名  葡萄、樱桃、橘子、…
+ *     3) 英文水果名  grape、cherry、…
+ *     4) 拼音        putao、yingtao、…
+ * ============================================================ */
+const FRUIT_ALIASES = {
+  cn: { '葡萄':1, '樱桃':2, '橘子':3, '柠檬':4, '猕猴桃':5, '番茄':6, '桃子':7, '菠萝':8, '椰子':9, '半西瓜':10, '大西瓜':11 },
+  en: { 'grape':1, 'cherry':2, 'orange':3, 'lemon':4, 'kiwi':5, 'tomato':6, 'peach':7, 'pineapple':8, 'coconut':9, 'halfwatermelon':10, 'watermelon':11 },
+  py: { 'putao':1, 'yingtao':2, 'juzi':3, 'ningmeng':4, 'mihoutao':5, 'fanqie':6, 'taozi':7, 'boluo':8, 'yezi':9, 'banxigua':10, 'daxigua':11 }
+};
+
+function detectLevelFromFilename(name) {
+  const lower = name.toLowerCase().replace(/\.[^.]+$/, '');  // 去后缀
+  // 1) lvN / N_
+  let m = lower.match(/^(?:lv)?(\d{1,2})(?:[_-]|$)/);
+  if (m) {
+    const n = +m[1];
+    if (n === 0) return null;  // 跳过 lv0
+    if (n >= 1 && n <= 11) return n;
+  }
+  // 2) 后半部分包含水果名 - 检查降序（避免 watermelon 命中 halfwatermelon）
+  const lvOrder = [11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+  for (const lv of lvOrder) {
+    const fruit = FRUITS[lv - 1];
+    if (lower.includes(fruit.name) || lower.includes(FRUIT_ALIASES.py[fruit.py])) return lv;
+  }
+  for (const lv of lvOrder) {
+    const fruit = FRUITS[lv - 1];
+    if (lower.includes(fruit.en)) return lv;
+  }
+  return null;
+}
+
+// 压缩：返回 { dataUrl, width, height }
+function compressImageFile(file, maxSize = 1024, quality = 0.9) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxSize || h > maxSize) {
+        if (w >= h) { h = Math.round(h * maxSize / w); w = maxSize; }
+        else { w = Math.round(w * maxSize / h); h = maxSize; }
+      }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      const cx = c.getContext('2d');
+      cx.fillStyle = '#fff';
+      cx.fillRect(0, 0, w, h);
+      cx.drawImage(img, 0, 0, w, h);
+      const isPng = file.type === 'image/png' || file.type === 'image/gif';
+      // 保存阈值约为 600KB Base64（800000 字符），这里留出余量，保证存入 localStorage 时不超限
+      const MAX_SAFE = 700000;
+      let dataUrl = isPng ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', quality);
+      // 若 PNG 体积过大（如照片类），自动转成 JPEG 并逐级降质，确保能存进 localStorage
+      if (dataUrl.length > MAX_SAFE) dataUrl = c.toDataURL('image/jpeg', 0.85);
+      if (dataUrl.length > MAX_SAFE) dataUrl = c.toDataURL('image/jpeg', 0.78);
+      if (dataUrl.length > MAX_SAFE) dataUrl = c.toDataURL('image/jpeg', 0.68);
+      resolve({ dataUrl, w, h });
+    };
+    img.onerror = () => reject(new Error('图片加载失败：' + file.name));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// 处理一个 FileList：识别等级 → 压缩 → 写入新配置 → 打开「调整画面」预览
+async function processBulkImport(fileList, targetConfigName) {
+  const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+  if (files.length === 0) { alert('没有选中任何图片'); return; }
+
+  const entries = [];
+  for (const f of files) {
+    const lv = detectLevelFromFilename(f.name);
+    let dataUrl = '';
+    try {
+      const r = await compressImageFile(f, 1024, 0.9);
+      dataUrl = r.dataUrl;
+    } catch (e) {
+      console.warn(e.message);
+    }
+    entries.push({ file: f, lv, dataUrl });
+  }
+
+  // 已分配等级追踪
+  const used = new Set();
+  for (const e of entries) if (e.lv) used.add(e.lv);
+  // 未匹配的按顺序补
+  let next = 1;
+  for (const e of entries) {
+    if (!e.lv) {
+      while (used.has(next) && next <= 11) next++;
+      if (next <= 11) { e.lv = next; used.add(next); next++; }
+    }
+  }
+
+  const okCount = entries.filter(e => e.lv && e.dataUrl).length;
+
+  // 写配置（默认等比铺满，稍后在弹窗里微调缩放/位置）；继承当前游戏名与水果名
+  const newCfg = { title: getGameTitle(), names: getActiveNames() };
+  for (const e of entries) {
+    if (e.lv && e.dataUrl) newCfg['lv' + e.lv] = { image: e.dataUrl, crop: { scale: 1, ox: 0, oy: 0 } };
+  }
+  for (let lv = 1; lv <= 11; lv++) {
+    if (!newCfg['lv' + lv]) newCfg['lv' + lv] = { image: '' };
+  }
+  ensureConfigExists(targetConfigName);
+  configStore.configs[targetConfigName] = newCfg;
+
+  // 切到该配置（尚未持久化，等用户在预览窗口点「完成」）
+  configStore.current = targetConfigName;
+  hasUnsavedChanges = true;
+  imageCache.clear();
+  updateConfigManagerUI();
+  buildConfigPanel();
+  updateUnsavedBadge();
+
+  // 打开「调整画面」预览窗口，让用户微调每张图的缩放/位置
+  openCropEditor(1);
+  flashMsg(`✅ 已导入 ${okCount} 张图到「${targetConfigName}」，可在预览窗口调整后点「完成」`);
+}
+
+function openBulkImport() {
+  const input = document.getElementById('bulkImportInput');
+  input.value = '';  // 允许再次选同一文件夹
+  input.click();
+}
+
+/* ============================================================
+ * 17.6. 图片「调整画面」裁剪预览
+ *   - 等比覆盖显示（不变形），支持缩放 + 拖拽平移选区
+ *   - 圆内即游戏实际显示效果
+ * ============================================================ */
+const cropEditor = { level: 1, size: 300, dragging: false, lastX: 0, lastY: 0 };
+
+// 当前等级图片可平移的像素范围（超出圆的部分的一半）
+function getPanRanges(level) {
+  const img = getImage(level);
+  if (!img || !img.complete || !img.naturalWidth || !img.naturalHeight) return { rx: 0, ry: 0 };
+  const r = cropEditor.size / 2;
+  const iw = img.naturalWidth, ih = img.naturalHeight;
+  const base = Math.max((r * 2) / iw, (r * 2) / ih);
+  const scale = base * (getCrop(level).scale || 1);
+  return {
+    rx: Math.max(0, (iw * scale - r * 2) / 2),
+    ry: Math.max(0, (ih * scale - r * 2) / 2)
+  };
+}
+
+function renderCropLevelList() {
+  const list = document.getElementById('cropLevelList');
+  if (!list) return;
+  list.innerHTML = '';
+  FRUITS.forEach(f => {
+    const cfg = getActiveCfg(f.level);
+    const btn = document.createElement('button');
+    btn.className = 'crop-level' + (f.level === cropEditor.level ? ' active' : '');
+    btn.dataset.level = f.level;
+    btn.title = `Lv${f.level} ${getFruitName(f.level)}`;
+    if (cfg.image) {
+      const im = document.createElement('img');
+      im.src = cfg.image;
+      btn.appendChild(im);
+    }
+    const tag = document.createElement('span');
+    tag.className = 'lv-tag';
+    tag.textContent = f.level;
+    btn.appendChild(tag);
+    btn.addEventListener('click', () => selectCropLevel(f.level));
+    list.appendChild(btn);
+  });
+}
+
+function renderCropEditor() {
+  const canvas = document.getElementById('cropCanvas');
+  if (!canvas) return;
+  const ctx2 = canvas.getContext('2d');
+  // 高清渲染：逻辑 300×300，实际像素按 DPR 放大
+  const s = cropEditor.size;
+  if (canvas.width !== Math.round(s * DPR) || canvas.height !== Math.round(s * DPR)) {
+    canvas.width = Math.round(s * DPR);
+    canvas.height = Math.round(s * DPR);
+  }
+  ctx2.setTransform(DPR, 0, 0, DPR, 0, 0);
+  ctx2.imageSmoothingEnabled = true;
+  ctx2.imageSmoothingQuality = 'high';
+  const r = s / 2;
+  ctx2.clearRect(0, 0, s, s);
+
+  ctx2.save();
+  ctx2.beginPath();
+  ctx2.arc(r, r, r - 1, 0, Math.PI * 2);
+  ctx2.clip();
+
+  const img = getImage(cropEditor.level);
+  if (img && img.complete && img.naturalWidth > 0) {
+    const crop = getCrop(cropEditor.level);
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const base = Math.max((r * 2) / iw, (r * 2) / ih);
+    const scale = base * crop.scale;
+    const dw = iw * scale, dh = ih * scale;
+    const ox = (dw - r * 2) / 2 * crop.ox;
+    const oy = (dh - r * 2) / 2 * crop.oy;
+    ctx2.drawImage(img, r - dw / 2 + ox, r - dh / 2 + oy, dw, dh);
+  } else {
+    ctx2.translate(r, r);
+    drawDefaultFruit(ctx2, cropEditor.level, r);
+    ctx2.translate(-r, -r);
+  }
+  ctx2.restore();
+
+  // 圆圈描边
+  ctx2.beginPath();
+  ctx2.arc(r, r, r - 1, 0, Math.PI * 2);
+  ctx2.strokeStyle = 'rgba(255,255,255,0.85)';
+  ctx2.lineWidth = 2;
+  ctx2.stroke();
+}
+
+function selectCropLevel(level) {
+  cropEditor.level = level;
+  const crop = getCrop(level);
+  document.getElementById('cropZoomSlider').value = crop.scale;
+  document.getElementById('cropLevelName').textContent = `Lv${level} · ${getFruitName(level)}`;
+  renderCropLevelList();
+  renderCropEditor();
+}
+
+function openCropEditor(level) {
+  cropEditor.level = level || 1;
+  document.getElementById('cropModal').classList.remove('hidden');
+  selectCropLevel(cropEditor.level);
+}
+
+async function closeCropEditor(persist) {
+  document.getElementById('cropModal').classList.add('hidden');
+  if (persist) {
+    try {
+      await persistConfigStore();
+      hasUnsavedChanges = false;
+    } catch (e) {
+      alert('保存失败：' + e.message);
+    }
+    updateUnsavedBadge();
+  }
+  buildConfigPanel();
+  updateConfigManagerUI();
+}
+
+function bindCropEditorEvents() {
+  const canvas = document.getElementById('cropCanvas');
+  const slider = document.getElementById('cropZoomSlider');
+
+  function applyZoom(z) {
+    z = clamp(z, 1, 4);
+    slider.value = z;
+    const c = getCrop(cropEditor.level);
+    setCrop(cropEditor.level, { scale: z, ox: c.ox, oy: c.oy });
+    renderCropEditor();
+  }
+
+  function applyPan(dx, dy) {
+    const { rx, ry } = getPanRanges(cropEditor.level);
+    const c = getCrop(cropEditor.level);
+    setCrop(cropEditor.level, {
+      scale: c.scale,
+      ox: rx > 0 ? clamp(c.ox + dx / rx, -1, 1) : c.ox,
+      oy: ry > 0 ? clamp(c.oy + dy / ry, -1, 1) : c.oy
+    });
+    renderCropEditor();
+  }
+
+  // 缩放滑块
+  slider.addEventListener('input', () => applyZoom(parseFloat(slider.value)));
+
+  // 滚轮缩放
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    applyZoom(parseFloat(slider.value) - e.deltaY * 0.002);
+  }, { passive: false });
+
+  // 鼠标拖拽平移
+  canvas.addEventListener('mousedown', e => {
+    cropEditor.dragging = true;
+    cropEditor.lastX = e.clientX;
+    cropEditor.lastY = e.clientY;
+  });
+  window.addEventListener('mousemove', e => {
+    if (!cropEditor.dragging) return;
+    applyPan(e.clientX - cropEditor.lastX, e.clientY - cropEditor.lastY);
+    cropEditor.lastX = e.clientX;
+    cropEditor.lastY = e.clientY;
+  });
+  window.addEventListener('mouseup', () => { cropEditor.dragging = false; });
+
+  // 触屏拖拽平移
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+      cropEditor.dragging = true;
+      cropEditor.lastX = e.touches[0].clientX;
+      cropEditor.lastY = e.touches[0].clientY;
+    }
+  }, { passive: true });
+  canvas.addEventListener('touchmove', e => {
+    if (!cropEditor.dragging || e.touches.length !== 1) return;
+    e.preventDefault();
+    applyPan(e.touches[0].clientX - cropEditor.lastX, e.touches[0].clientY - cropEditor.lastY);
+    cropEditor.lastX = e.touches[0].clientX;
+    cropEditor.lastY = e.touches[0].clientY;
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { cropEditor.dragging = false; });
+
+  // 重置
+  document.getElementById('cropResetBtn').addEventListener('click', () => {
+    setCrop(cropEditor.level, { scale: 1, ox: 0, oy: 0 });
+    slider.value = 1;
+    renderCropEditor();
+  });
+
+  // 应用到全部
+  document.getElementById('cropApplyAllBtn').addEventListener('click', () => {
+    const c = getCrop(cropEditor.level);
+    for (let lv = 1; lv <= 11; lv++) {
+      if (getActiveCfg(lv).image) setCrop(lv, { scale: c.scale, ox: c.ox, oy: c.oy });
+    }
+    renderCropLevelList();
+    renderCropEditor();
+    flashMsg('已把当前缩放/位置应用到全部水果');
+  });
+
+  // 完成 / 关闭
+  document.getElementById('cropConfirmBtn').addEventListener('click', () => closeCropEditor(true));
+  document.getElementById('cropCloseBtn').addEventListener('click', () => closeCropEditor(false));
+  document.getElementById('cropBackdrop').addEventListener('click', () => closeCropEditor(false));
+}
+
+function updateConfigManagerUI() {
+  // 当前配置名显示
+  const cur = document.getElementById('currentConfigName');
+  if (cur) {
+    // 「默认」配置加 🔒（只读基准）；其他配置显示原名
+    const name = isConfigLocked(configStore.current)
+      ? '🔒 ' + configStore.current
+      : configStore.current;
+    cur.textContent = name;
+  }
+  // 已保存配置列表（chip 形式）
+  const list = document.getElementById('savedConfigsList');
+  if (list) {
+    list.innerHTML = '';
+    const names = listConfigNames();
+    names.forEach(name => {
+      const locked = isConfigLocked(name);
+      const displayName = name;
+      const chip = document.createElement('span');
+      const isActive = name === configStore.current;
+      chip.className = 'saved-config-chip' + (isActive ? ' active' : '') + (locked ? ' builtin' : '');
+      chip.title = isActive
+        ? '当前配置'
+        : (locked ? '默认基准配置，点击切换到「' + displayName + '」' : '点击切换到「' + name + '」');
+      chip.innerHTML = (locked ? '<span class="chip-lock">🔒</span>' : '') + `<span>${escapeAttr(displayName)}</span>`;
+      if (!isActive) {
+        chip.addEventListener('click', () => {
+          if (switchConfig(name)) {
+            document.getElementById('configNameInput').value = '';
+          }
+        });
+      }
+      // 删除按钮：默认基准配置不显示删除；其他配置（含 Mina/Sana）都可删
+      if (!locked) {
+        const del = document.createElement('button');
+        del.className = 'chip-del';
+        del.textContent = '×';
+        del.title = '删除配置「' + name + '」';
+        del.addEventListener('click', async e => {
+          e.stopPropagation();
+          if (!confirm('删除配置「' + name + '」？')) return;
+          if (configStore.current === name) {
+            switchConfig(DEFAULT_CONFIG_NAME);
+          }
+          delete configStore.configs[name];
+          try { await persistConfigStore(); } catch (err) { alert('保存失败：' + err.message); return; }
+          updateConfigManagerUI();
+          flashMsg('已删除「' + name + '」');
+        });
+        chip.appendChild(del);
+      }
+      list.appendChild(chip);
+    });
+  }
+  syncConfigMetaUI();
+}
+
+/* ============================================================
+ * 19. 配置面板外的废弃函数兼容（已移除）
+ *   - saveConfig / loadConfig 已替换为 saveCurrentConfig / loadConfigStore
+ *   旧名保留为别名，避免控制台报错。
+ * ============================================================ */
+function saveConfig() { saveCurrentConfig(); }
+function loadConfig() { loadConfigStore(); }
+
+/* ============================================================
+ * 20. 启动
+ * ============================================================ */
+function init() {
+  // 保证打开链接时页面默认停在最顶部（手机/桌面都不会停在中间或上次的位置）
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch (e) {}
+  window.scrollTo(0, 0);
+
+  loadConfigStore();
+  loadDifficulty();
+  document.getElementById('highScoreEl').textContent = game.highScore;
+  buildConfigPanel();
+  updateConfigManagerUI();
+  updateDifficultyUI();
+  buildDifficultyTooltips();
+  updateUnsavedBadge();
+
+  // 异步加载内置预设（部署到公网后从 /presets/manifest.json 拉取）
+  // 完成后刷新配置管理器 UI 让内置预设显示出来
+  loadBuiltinPresets().then(() => {
+    if (BUILTIN_PRESETS_LOADING.loaded) {
+      updateConfigManagerUI();
+      flashMsg('✅ 已加载 ' + BUILTIN_PRESETS_LOADING.manifest.presets.length + ' 套内置预设');
+    }
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', restart);
+  document.getElementById('overlayRestart').addEventListener('click', restart);
+
+  // 手机端配置抽屉：点「⚙️设置」开/关，点遮罩关闭
+  const settingsBtn = document.getElementById('settingsBtn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => document.body.classList.toggle('cfg-open'));
+  }
+  const cfgBackdrop = document.getElementById('cfgBackdrop');
+  if (cfgBackdrop) {
+    cfgBackdrop.addEventListener('click', () => document.body.classList.remove('cfg-open'));
+  }
+  document.getElementById('saveConfigBtn').addEventListener('click', saveCurrentConfig);
+  document.getElementById('saveAsConfigBtn').addEventListener('click', () => {
+    const name = document.getElementById('configNameInput').value.trim();
+    if (saveAsNewConfig(name)) {
+      document.getElementById('configNameInput').value = '';
+    }
+  });
+  document.getElementById('deleteConfigBtn').addEventListener('click', deleteCurrentConfig);
+  // 批量导入
+  document.getElementById('bulkImportBtn').addEventListener('click', openBulkImport);
+  document.getElementById('bulkImportInput').addEventListener('change', e => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const name = prompt('导入为哪个配置名？', 'mina');
+    if (!name) return;
+    processBulkImport(files, name.trim());
+  });
+  // 游戏名可编辑（随配置保存）
+  const titleInput = document.getElementById('titleInput');
+  titleInput.addEventListener('input', e => setGameTitle(e.target.value));
+  titleInput.addEventListener('change', e => { if (!e.target.value.trim()) e.target.value = getGameTitle(); });
+  // 难度选择
+  document.querySelectorAll('.diff-btn').forEach(btn => {
+    btn.addEventListener('click', () => setDifficulty(btn.dataset.difficulty));
+  });
+  // 多设备同步（复制 / 粘贴 / 导出 / 导入）
+  document.getElementById('copyConfigJsonBtn').addEventListener('click', copyConfigToClipboard);
+  document.getElementById('pasteConfigJsonBtn').addEventListener('click', pasteConfigFromClipboard);
+  document.getElementById('exportConfigJsonBtn').addEventListener('click', exportConfigToFile);
+  document.getElementById('importConfigJsonBtn').addEventListener('click', () => {
+    document.getElementById('importConfigJsonInput').click();
+  });
+  document.getElementById('importConfigJsonInput').addEventListener('change', e => {
+    const f = e.target.files && e.target.files[0];
+    importConfigFromFile(f);
+    e.target.value = ''; // 允许重复选同一文件
+  });
+
+  // 图片「调整画面」裁剪弹窗
+  bindCropEditorEvents();
+  // Enter 键触发"另存为"
+  document.getElementById('configNameInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const name = e.target.value.trim();
+      if (saveAsNewConfig(name)) e.target.value = '';
+    }
+  });
+
+  game.nextLevel = randomNextLevel();
+  requestAnimationFrame(loop);
+}
+
+init();
+</script>
+</body>
+</html>
